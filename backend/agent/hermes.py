@@ -15,13 +15,20 @@ class HermesError(RuntimeError):
     pass
 
 
-def _headers() -> dict[str, str]:
+def _headers(session_id: str | None = None) -> dict[str, str]:
+    """Session-Key scopes long-term memory and is fixed (single-user system).
+    Session-Id scopes the transcript and carries our own session row id, so
+    Hermes run status can be correlated back to a row in `sessions`.
+    """
     settings = get_settings()
-    return {
+    headers = {
         "Authorization": f"Bearer {settings.api_server_key}",
         "X-Hermes-Session-Key": settings.hermes_session_key,
         "Content-Type": "application/json",
     }
+    if session_id:
+        headers["X-Hermes-Session-Id"] = session_id
+    return headers
 
 
 async def ping() -> bool:
@@ -35,20 +42,34 @@ async def ping() -> bool:
         return False
 
 
-async def complete(prompt: str, *, system: str | None = None) -> str:
-    """Trivial one-shot round-trip via the OpenAI-compatible endpoint."""
-    settings = get_settings()
-    messages: list[dict[str, str]] = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+async def chat(
+    messages: list[dict[str, str]],
+    *,
+    session_id: str | None = None,
+    system: str | None = None,
+) -> str:
+    """Run a turn through the OpenAI-compatible endpoint.
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        resp = await client.post(
-            f"{settings.hermes_base_url}/v1/chat/completions",
-            headers=_headers(),
-            json={"model": "hermes-agent", "messages": messages, "stream": False},
-        )
+    The full transcript is sent every call: the docs describe
+    X-Hermes-Session-Id as a correlation handle for external UIs, not a
+    promise that the gateway replays history for us. Athena's `sessions`
+    row stays the source of truth either way.
+    """
+    settings = get_settings()
+    body: list[dict[str, str]] = []
+    if system:
+        body.append({"role": "system", "content": system})
+    body.extend(messages)
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{settings.hermes_base_url}/v1/chat/completions",
+                headers=_headers(session_id),
+                json={"model": "hermes-agent", "messages": body, "stream": False},
+            )
+    except httpx.HTTPError as exc:
+        raise HermesError(f"Could not reach Hermes at {settings.hermes_base_url}: {exc}") from exc
 
     if resp.status_code != 200:
         raise HermesError(f"Hermes returned {resp.status_code}: {resp.text[:500]}")
@@ -56,5 +77,10 @@ async def complete(prompt: str, *, system: str | None = None) -> str:
     payload = resp.json()
     try:
         return payload["choices"][0]["message"]["content"]
-    except (KeyError, IndexError) as exc:
+    except (KeyError, IndexError, TypeError) as exc:
         raise HermesError(f"Unexpected response shape: {payload!r}") from exc
+
+
+async def complete(prompt: str, *, system: str | None = None) -> str:
+    """One-shot round-trip. Thin wrapper over chat() for smoke tests."""
+    return await chat([{"role": "user", "content": prompt}], system=system)

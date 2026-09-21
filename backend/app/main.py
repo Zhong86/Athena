@@ -8,6 +8,7 @@ from agent import hermes
 from app.config import get_settings
 from app.db import connection, init_db
 from app.migrations import current_version, pending_count
+from app.routers import sessions
 
 
 @asynccontextmanager
@@ -25,6 +26,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(sessions.router)
 
 
 @app.get("/health")

@@ -6,7 +6,7 @@ CREATE TABLE source_files (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     filename    TEXT NOT NULL,
     upload_type TEXT NOT NULL CHECK (upload_type IN ('text', 'pdf', 'image')),
-    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    uploaded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
 CREATE TABLE topics (
@@ -34,7 +34,7 @@ CREATE INDEX idx_chunks_source_file ON chunks (source_file_id);
 CREATE TABLE sessions (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     type       TEXT NOT NULL CHECK (type IN ('chat', 'quiz', 'cron', 'agent_action')),
-    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     payload    TEXT,  -- JSON blob, shape varies by type
     summary    TEXT
 );
@@ -49,7 +49,7 @@ CREATE TABLE quiz_attempts (
     question   TEXT NOT NULL,
     answer     TEXT,
     correct    INTEGER CHECK (correct IN (0, 1)),  -- NULL until graded
-    timestamp  TEXT NOT NULL DEFAULT (datetime('now'))
+    timestamp  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
 CREATE INDEX idx_quiz_attempts_topic ON quiz_attempts (topic_id);
@@ -62,7 +62,7 @@ CREATE TABLE goals (
     -- mirrors RoadmapState.status; 'committed' is what commit_roadmap writes
     status      TEXT NOT NULL DEFAULT 'draft'
         CHECK (status IN ('draft', 'committed', 'archived')),
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
 CREATE TABLE milestones (
