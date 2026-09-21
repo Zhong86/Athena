@@ -1,11 +1,17 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, HTTPException, Query
 
 from agent import hermes
+from app.clock import utc_now_iso
 from app.db import connection
-from app.repositories import sessions as repo
-from app.schemas import ChatReply, ChatRequest, Session, SessionCreate, SessionPage, SessionType
+from app.sessions import repository as repo
+from app.sessions.schemas import (
+    ChatReply,
+    ChatRequest,
+    Session,
+    SessionCreate,
+    SessionPage,
+    SessionType,
+)
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -13,12 +19,6 @@ SYSTEM_PROMPT = (
     "You are Athena, a study agent. Be concise and concrete. "
     "When the student reveals what they do or do not understand, say so plainly."
 )
-
-
-def _now() -> str:
-    """Same shape as the SQL column defaults, so every timestamp in the
-    Sessions log sorts and renders identically."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @router.get("", response_model=SessionPage)
@@ -79,8 +79,8 @@ async def chat(session_id: int, body: ChatRequest) -> ChatReply:
             conn,
             session_id,
             [
-                {"role": "user", "content": body.message, "at": _now()},
-                {"role": "assistant", "content": reply, "at": _now()},
+                {"role": "user", "content": body.message, "at": utc_now_iso()},
+                {"role": "assistant", "content": reply, "at": utc_now_iso()},
             ],
         )
 

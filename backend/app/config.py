@@ -24,6 +24,20 @@ class Settings(BaseSettings):
     # Storage
     sqlite_path: Path = BACKEND_DIR / "data" / "athena.db"
     lancedb_path: Path = BACKEND_DIR / "data" / "lancedb"
+    # Original uploaded bytes, kept so a failed extract can be retried without
+    # asking the user to upload again.
+    uploads_path: Path = BACKEND_DIR / "data" / "uploads"
+    # Pinned so the ~130MB ONNX download lands inside the project rather than in
+    # the ambient HF cache -- matters on a fresh VPS where $HOME may be wiped.
+    fastembed_cache: Path = BACKEND_DIR / "data" / "models"
+
+    # Materials ingestion
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_dim: int = 384
+    max_upload_bytes: int = 10 * 1024 * 1024
+    # Off in tests: warming downloads ~130MB on a cold cache, which no test
+    # should ever trigger.
+    warm_embeddings: bool = True
 
     # Frontend origins allowed through CORS (comma-separated).
     # Dev port drifts when 3000 is taken by another project, so allow both.
