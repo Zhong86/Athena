@@ -70,9 +70,10 @@ CREATE TABLE milestones (
     goal_id           INTEGER NOT NULL REFERENCES goals (id) ON DELETE CASCADE,
     title             TEXT NOT NULL,
     description       TEXT,
-    -- "order" is a SQL keyword; quoted so the column name matches the
-    -- Milestone TypedDict field exactly and rows map across with no renaming.
-    "order"           INTEGER NOT NULL,
+    -- Named order_index rather than "order" (a SQL keyword needing quotes at
+    -- every call site). The Milestone TypedDict field is `order`; map between
+    -- the two in the row<->state helpers, not in raw SQL.
+    order_index       INTEGER NOT NULL,
     status            TEXT NOT NULL DEFAULT 'proposed'
         CHECK (status IN ('proposed', 'approved', 'edited', 'rejected')),
     reason            TEXT,
@@ -81,7 +82,7 @@ CREATE TABLE milestones (
     est_effort        TEXT
 );
 
-CREATE INDEX idx_milestones_goal ON milestones (goal_id, "order");
+CREATE INDEX idx_milestones_goal ON milestones (goal_id, order_index);
 
 CREATE TABLE settings (
     key   TEXT PRIMARY KEY,  -- page-scoped: materials.* | goal.* | general.*
