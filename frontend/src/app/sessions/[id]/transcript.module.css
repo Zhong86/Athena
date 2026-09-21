@@ -1,0 +1,77 @@
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  min-height: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 11px 15px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.assistant {
+  background: var(--indigo-soft);
+  color: var(--ink);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.user {
+  background: var(--ink);
+  color: #fff;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.thinking {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.composer {
+  display: flex;
+  gap: 10px;
+}
+
+.composer input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.composer input:focus {
+  outline: none;
+  border-color: var(--indigo);
+}
+
+.backRow {
+  margin-bottom: 20px;
+}
+
+.backLink {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--indigo);
+}

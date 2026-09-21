@@ -22,10 +22,14 @@ def _headers(session_id: str | None = None) -> dict[str, str]:
     """
     settings = get_settings()
     headers = {
-        "Authorization": f"Bearer {settings.api_server_key}",
         "X-Hermes-Session-Key": settings.hermes_session_key,
         "Content-Type": "application/json",
     }
+    # An empty key would send a bare "Bearer ", which httpx rejects outright as
+    # an illegal header value -- surfacing as a confusing transport error
+    # rather than the 401 the gateway would actually return.
+    if settings.api_server_key:
+        headers["Authorization"] = f"Bearer {settings.api_server_key}"
     if session_id:
         headers["X-Hermes-Session-Id"] = session_id
     return headers
