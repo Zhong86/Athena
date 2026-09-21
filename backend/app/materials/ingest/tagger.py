@@ -51,6 +51,10 @@ class TaggingResult:
     # placeholder from `proposed`, or None when the chunk could not be placed.
     refs: list[int | None]
     proposed: list[ProposedTopic]
+    # Batches the gateway could not answer. Non-zero means some chunks are
+    # untagged for a reason the user can act on (start Hermes, hit Retry)
+    # rather than because the model genuinely had nothing to say.
+    failed_batches: int = 0
 
 
 def _prompt(texts: list[str], known: list[dict]) -> str:
@@ -162,6 +166,7 @@ async def assign_topics(
     see the topics batch N-1 invented."""
     refs: list[int | None] = []
     resolver = _Resolver(existing_topics)
+    failed_batches = 0
 
     for start in range(0, len(texts), BATCH_SIZE):
         batch = texts[start : start + BATCH_SIZE]
@@ -172,8 +177,10 @@ async def assign_topics(
             assignments = _parse(raw)
         except hermes.HermesError:
             # The agent being down must not lose the upload -- the chunks are
-            # already stored and can be re-tagged by retrying the ingest.
+            # already stored and can be re-tagged by retrying the ingest. It
+            # must not pass silently either, hence the counter.
             assignments = []
+            failed_batches += 1
 
         by_index: dict[int, int | None] = {}
         for a in assignments:
@@ -183,4 +190,6 @@ async def assign_topics(
 
         refs.extend(by_index.get(i) for i in range(len(batch)))
 
-    return TaggingResult(refs=refs, proposed=resolver.proposed)
+    return TaggingResult(
+        refs=refs, proposed=resolver.proposed, failed_batches=failed_batches
+    )

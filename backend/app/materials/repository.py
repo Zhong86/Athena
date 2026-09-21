@@ -24,6 +24,21 @@ INGEST_STATUSES = (
 RESTARTABLE = ("pending", "failed")
 
 
+def is_restartable(source_file: dict) -> bool:
+    """Restartable if the run stopped, or if it finished degraded.
+
+    A `ready` row that still carries a message means the ingest completed but
+    something inside it did not -- tagging with the gateway down is the case
+    that matters -- and re-running is exactly the fix. `replace_chunks` deletes
+    the previous chunks first, so a second run cannot duplicate them.
+    """
+    if source_file["ingest_status"] in RESTARTABLE:
+        return True
+    return source_file["ingest_status"] == "ready" and bool(
+        source_file.get("ingest_error")
+    )
+
+
 # --------------------------------------------------------------------------
 # source_files
 # --------------------------------------------------------------------------
@@ -36,16 +51,45 @@ def create_source_file(
     upload_type: str,
     byte_size: int | None = None,
     stored_path: str | None = None,
+    origin: str = "local",
+    drive_file_id: str | None = None,
+    drive_url: str | None = None,
+    drive_modified_at: str | None = None,
 ) -> dict[str, Any]:
+    """A Drive-origin row carries a pointer instead of a `stored_path`: the
+    bytes stay in the user's Drive and only the derived index lives here."""
     cur = conn.execute(
         """
-        INSERT INTO source_files (filename, upload_type, byte_size, stored_path)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO source_files
+            (filename, upload_type, byte_size, stored_path,
+             origin, drive_file_id, drive_url, drive_modified_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING *
         """,
-        (filename, upload_type, byte_size, stored_path),
+        (
+            filename,
+            upload_type,
+            byte_size,
+            stored_path,
+            origin,
+            drive_file_id,
+            drive_url,
+            drive_modified_at,
+        ),
     )
     return dict(cur.fetchone())
+
+
+def find_by_drive_file_id(
+    conn: sqlite3.Connection, drive_file_id: str
+) -> dict[str, Any] | None:
+    """Re-picking a file already in Drive must update that row, not add a
+    second one -- the partial unique index enforces it, this is how callers
+    check first."""
+    row = conn.execute(
+        "SELECT * FROM source_files WHERE drive_file_id = ?", (drive_file_id,)
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def get_source_file(conn: sqlite3.Connection, file_id: int) -> dict[str, Any] | None:
@@ -285,7 +329,7 @@ def sources_for_topic(conn: sqlite3.Connection, topic_id: int) -> list[dict[str,
         for r in conn.execute(
             """
             SELECT sf.id AS source_file_id, sf.filename, sf.upload_type,
-                   sf.uploaded_at, sf.ingest_status,
+                   sf.uploaded_at, sf.ingest_status, sf.origin, sf.drive_url,
                    COUNT(c.id) AS chunks_total,
                    SUM(CASE WHEN c.topic_id = ? THEN 1 ELSE 0 END) AS chunks_in_topic
             FROM source_files sf

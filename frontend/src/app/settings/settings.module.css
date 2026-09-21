@@ -1,0 +1,270 @@
+/* Settings is a local-only screen for now: no backend, no server state. The
+   rules here are all about the switch row, which is the whole page. */
+
+.notice {
+  border: 1px dashed var(--indigo-line);
+  background: var(--indigo-wash);
+  color: var(--ink-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 32px;
+}
+
+.notice strong {
+  color: var(--indigo-deep);
+}
+
+/* ===== Group ===== */
+.group {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 18px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+/* A row whose control needs its own line (the website list, the cron
+   picker) stacks instead of sitting beside the label. */
+.rowStacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+/* A sub-setting only applies while its parent switch is on, so it is indented
+   under it and greys out with the parent. */
+.rowChild {
+  padding-left: 40px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
+.rowDisabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* The label/description pair is spans inside a <label> and <p>s elsewhere, so
+   both have to lay out as blocks. */
+.rowText,
+.label,
+.desc {
+  display: block;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 3px;
+}
+
+.desc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 56ch;
+}
+
+/* ===== Switch =====
+   A real checkbox, visually hidden behind the track, so it keeps keyboard
+   focus, the label association and the checked state for free. */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  margin-top: 2px;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.track {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 0.15s ease;
+  pointer-events: none;
+}
+
+.track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(28 28 30 / 22%);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked ~ .track {
+  background: var(--indigo);
+}
+
+.switch input:checked ~ .track::after {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible ~ .track {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+/* ===== Scope radios ===== */
+.modes {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modes legend {
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.mode input {
+  accent-color: var(--indigo);
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+}
+
+.modeName {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+/* "Any resource" is the one choice that removes a guardrail, so it reads as a
+   caution rather than a hint. */
+.warn {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--amber-ink);
+  background: var(--amber-soft);
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+/* ===== Website list ===== */
+.siteForm {
+  display: flex;
+  gap: 8px;
+}
+
+.input,
+.select {
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--indigo);
+}
+
+.chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  background: var(--indigo-soft);
+  color: var(--indigo-deep);
+  border-radius: 999px;
+  padding: 5px 6px 5px 12px;
+}
+
+.chipRemove {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--indigo-deep);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.chipRemove:hover {
+  background: var(--indigo-line);
+}
+
+/* ===== Cron picker ===== */
+.cron {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track,
+  .track::after {
+    transition: none;
+  }
+}

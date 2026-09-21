@@ -1,16 +1,116 @@
 /* Ported from templates/dashboard.html. Shared chrome lives in globals.css. */
 
-.link {
-  font-size: 13px;
-  color: var(--ink-soft);
-  text-decoration: none;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 1px;
+/* ===== Quote header ===== */
+.quoteCard {
+  margin: 0;
+  padding: 20px 24px;
+  background: var(--indigo-wash);
+  border-left: 3px solid var(--indigo);
+  border-radius: 0 12px 12px 0;
 }
 
-.link:hover {
+.quoteText {
+  font-family: var(--font-fraunces), serif;
+  font-size: 17px;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.quoteAuthor {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ===== Goals progress ===== */
+.subtleLink {
+  font-size: 13px;
   color: var(--indigo);
+  text-decoration: none;
+}
+
+.subtleLink:hover {
+  text-decoration: underline;
+}
+
+.goalList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.goalRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.goalRow:hover {
   border-color: var(--indigo);
+  box-shadow: 0 4px 16px rgb(28 28 30 / 5%);
+}
+
+/* Progress as a conic ring -- `--pct` is set inline from the computed percent. */
+.ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: conic-gradient(var(--indigo) calc(var(--pct) * 1%), var(--line) 0);
+}
+
+.ring::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.ring span {
+  position: relative;
+  z-index: 1;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.chevron {
+  color: var(--ink-soft);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.emptyCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.emptyCard p {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin: 0;
 }
 
 /* ===== Last check-in ===== */
@@ -69,41 +169,7 @@
   font-weight: 600;
 }
 
-/* ===== Priority feed ===== */
-.feedList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--line);
-}
-
-.feedItem {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 4px;
-  border-bottom: 1px solid var(--line);
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.urgent {
-  background: var(--coral);
-}
-
-.soon {
-  background: var(--amber);
-}
-
-.later {
-  background: var(--sage);
-}
-
+/* ===== Goal row text (shared with .goalRow above) ===== */
 .meta {
   flex: 1;
   min-width: 0;
@@ -124,23 +190,6 @@
   margin: 0;
 }
 
-.tagWeak {
-  color: var(--indigo);
-  font-weight: 600;
-}
-
-.when {
-  font-size: 13px;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.whenUrgent {
-  color: var(--coral);
-  font-weight: 500;
-}
-
 @media (max-width: 560px) {
   .checkinCard {
     padding: 20px;
@@ -150,7 +199,8 @@
     white-space: normal;
   }
 
-  .feedItem {
+  .emptyCard {
+    flex-direction: column;
     align-items: flex-start;
   }
 }

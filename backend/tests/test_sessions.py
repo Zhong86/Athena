@@ -117,3 +117,59 @@ def test_hermes_failure_is_502_and_does_not_persist(client, monkeypatch):
     assert resp.status_code == 502
     # a failed turn must leave no half-written transcript behind
     assert client.get(f"/sessions/{sid}").json()["payload"] is None
+
+
+def _ids(client, **params):
+    return [s["id"] for s in client.get("/sessions", params=params).json()["items"]]
+
+
+def test_rename_and_clear_title(client):
+    sid = client.post("/sessions", json={"type": "chat"}).json()["id"]
+
+    renamed = client.patch(f"/sessions/{sid}", json={"title": "  Entropy notes  "})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["title"] == "Entropy notes"
+
+    # an explicit null drops back to the frontend-derived title
+    assert client.patch(f"/sessions/{sid}", json={"title": None}).json()["title"] is None
+
+
+def test_rename_rejects_blank_title(client):
+    sid = client.post("/sessions", json={"type": "chat"}).json()["id"]
+    assert client.patch(f"/sessions/{sid}", json={"title": "   "}).status_code == 422
+
+
+def test_archive_hides_from_log_and_count(client):
+    sid = client.post("/sessions", json={"type": "chat"}).json()["id"]
+    before = client.get("/sessions", params={"type": "chat"}).json()["total"]
+
+    archived = client.patch(f"/sessions/{sid}", json={"archived": True}).json()
+    assert archived["archived_at"]
+
+    page = client.get("/sessions", params={"type": "chat"}).json()
+    assert sid not in [s["id"] for s in page["items"]]
+    # total has to move with the rows, or the header lies about the list
+    assert page["total"] == before - 1
+    assert sid in _ids(client, type="chat", archived=True)
+
+    # ...and unarchiving puts it back
+    assert client.patch(f"/sessions/{sid}", json={"archived": False}).json()["archived_at"] is None
+    assert sid in _ids(client, type="chat")
+
+
+def test_patch_leaves_unsent_fields_alone(client):
+    sid = client.post("/sessions", json={"type": "chat"}).json()["id"]
+    client.patch(f"/sessions/{sid}", json={"title": "Keep me"})
+    client.patch(f"/sessions/{sid}", json={"archived": True})
+    assert client.get(f"/sessions/{sid}").json()["title"] == "Keep me"
+
+
+def test_delete_session(client):
+    sid = client.post("/sessions", json={"type": "chat"}).json()["id"]
+    assert client.delete(f"/sessions/{sid}").status_code == 204
+    assert client.get(f"/sessions/{sid}").status_code == 404
+    assert client.delete(f"/sessions/{sid}").status_code == 404
+
+
+def test_patch_missing_session_404(client):
+    assert client.patch("/sessions/99999", json={"title": "x"}).status_code == 404

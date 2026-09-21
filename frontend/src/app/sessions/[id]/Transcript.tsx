@@ -51,7 +51,7 @@ export function Transcript({
     <>
       <div className={styles.transcript}>
         {messages.length === 0 && !pending ? (
-          <div className="empty-state">
+          <div className={styles.empty}>
             <strong>Nothing here yet</strong>
             Ask Αθηνα something to get started.
           </div>

@@ -41,7 +41,7 @@ def _claim(file_id: int) -> dict | None:
         source_file = repo.get_source_file(conn, file_id)
         if source_file is None:
             return None
-        if source_file["ingest_status"] not in repo.RESTARTABLE:
+        if not repo.is_restartable(source_file):
             return None
         repo.set_status(conn, file_id, "extracting")
         return source_file
@@ -71,7 +71,13 @@ def _resolve_topics(refs: list[int | None], proposed: list) -> dict[int, int | N
     }
 
 
-async def _tag(file_id: int, chunk_ids: list[int], texts: list[str]) -> None:
+async def _tag(file_id: int, chunk_ids: list[int], texts: list[str]) -> str | None:
+    """Returns a note to surface on the finished row, or None if all went well.
+
+    Tagging is deliberately non-fatal -- the chunks are stored and embedded
+    either way -- but "ready with nothing tagged" is indistinguishable from
+    "ready" in the UI unless the reason is written down somewhere.
+    """
     with connection() as conn:
         repo.set_status(conn, file_id, "tagging")
         existing = repo.list_topics_for_prompt(conn)
@@ -84,6 +90,16 @@ async def _tag(file_id: int, chunk_ids: list[int], texts: list[str]) -> None:
             conn,
             {chunk_id: by_position.get(i) for i, chunk_id in enumerate(chunk_ids)},
         )
+
+    if result.failed_batches:
+        untagged = sum(1 for ref in result.refs if ref is None)
+        noun = "chunk is" if untagged == 1 else "chunks are"
+        return (
+            f"Stored and searchable, but {untagged} of {len(chunk_ids)} {noun} "
+            "untagged: Αθηνα could not be reached. Retry once it is running to "
+            "assign topics."
+        )
+    return None
 
 
 async def _embed(file_id: int) -> None:
@@ -141,11 +157,11 @@ async def ingest(file_id: int) -> None:
         with connection() as conn:
             chunk_ids = repo.replace_chunks(conn, file_id, chunks)
 
-        await _tag(file_id, chunk_ids, [c.text for c in chunks])
+        note = await _tag(file_id, chunk_ids, [c.text for c in chunks])
         await _embed(file_id)
 
         with connection() as conn:
-            repo.set_status(conn, file_id, "ready")
+            repo.set_status(conn, file_id, "ready", error=note)
 
     except (ExtractError, IngestError) as exc:
         _fail(file_id, str(exc))

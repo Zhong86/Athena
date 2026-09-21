@@ -11,12 +11,22 @@ class SessionCreate(BaseModel):
     summary: str | None = None
 
 
+class SessionUpdate(BaseModel):
+    """Every field is optional; omitting one leaves it alone. Sending
+    `title: null` clears the override so the derived title comes back."""
+
+    title: str | None = Field(None, max_length=200)
+    archived: bool | None = None
+
+
 class Session(BaseModel):
     id: int
     type: SessionType
     started_at: str
     payload: dict[str, Any] | None = None
     summary: str | None = None
+    title: str | None = None
+    archived_at: str | None = None
 
 
 class SessionPage(BaseModel):

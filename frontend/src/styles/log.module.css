@@ -1,0 +1,245 @@
+/* The session-log row, shared by /sessions, /quizzes and /knowledge-sync.
+   All three list the same table with a different type filter, so the row
+   styling lives here rather than being copied three ways. */
+
+.logList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.logItem {
+  display: flex;
+  gap: 14px;
+  padding: 18px 4px;
+  border-bottom: 1px solid var(--line);
+  /* anchors .rowLink's click overlay */
+  position: relative;
+  border-radius: 10px;
+}
+
+.logItem:has(.rowLink:hover),
+.logItem:has(.rowLink:focus-visible) {
+  background: var(--indigo-wash);
+}
+
+/* The title is the link, but its hit area is the whole row. Everything that
+   needs its own click (the ⋯ menu, the rename form) sits above the overlay
+   on .menuWrap / .renameForm. */
+.rowLink {
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.rowLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.rowLink:focus-visible {
+  outline: none;
+}
+
+.logItem:has(.rowLink:focus-visible) {
+  outline: 2px solid var(--indigo);
+  outline-offset: -2px;
+}
+
+.logMarker {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.chat {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+.quiz {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+.finding {
+  background: var(--sage-soft);
+  color: var(--sage);
+}
+.agent {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.typePill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.summary {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.rowBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.when {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ===== Row actions (⋯) ===== */
+
+.menuWrap {
+  position: relative;
+  /* above .rowLink's overlay, so its clicks never open the chat */
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.menuButton {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.menuButton:hover,
+.menuButton[aria-expanded="true"] {
+  background: var(--indigo-soft);
+  color: var(--ink);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 2;
+  min-width: 168px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgb(28 28 30 / 12%);
+}
+
+.menuItem {
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.menuItem:hover:not(:disabled) {
+  background: var(--indigo-soft);
+}
+
+.menuItem:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.danger {
+  color: var(--coral);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--coral-soft);
+}
+
+.renameForm {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.renameForm input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.renameForm input:focus {
+  outline: none;
+  border-color: var(--indigo);
+}
+
+.rowError {
+  font-size: 12.5px;
+  color: var(--coral);
+}
+
+.newSessionRow {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+@media (max-width: 560px) {
+  .rowBottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}

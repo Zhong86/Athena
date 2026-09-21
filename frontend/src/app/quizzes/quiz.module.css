@@ -1,0 +1,945 @@
+/* Quizzes: the index, the taking flow, and the results screen.
+   Tokens and shared chrome come from globals.css. */
+
+.subtle {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ===== Score tones =====
+   Same four bands as Materials (api.ts `understandingBand`), so a 72 on a
+   quiz and a 72 on a topic are the same colour. */
+.unknown {
+  background: var(--line);
+  color: var(--ink-soft);
+}
+.weak {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+.fair {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+.strong {
+  background: var(--sage-soft);
+  color: var(--sage);
+}
+
+/* ===== Index ===== */
+.quizList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.quizCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.quizCard:hover {
+  border-color: var(--indigo);
+}
+
+/* The left edge of an unfinished quiz is the one thing that should pull the
+   eye down the list — a taken quiz is an archive row, this is a to-do. */
+.quizCardOpen {
+  border-left: 3px solid var(--indigo);
+}
+
+.quizMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.quizTitle {
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.quizSub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.quizAside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.statusPill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--line);
+  color: var(--ink-soft);
+}
+
+.ready,
+.in_progress {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+.grading {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+
+/* The list's score chip. `unscored` is not a zero and must not look like one. */
+.scoreChip {
+  font-family: var(--font-fraunces), serif;
+  font-size: 17px;
+  font-weight: 600;
+  min-width: 46px;
+  text-align: center;
+  padding: 7px 10px;
+  border-radius: 10px;
+  line-height: 1;
+}
+
+.unscored {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  padding: 8px 10px;
+}
+
+/* ===== Quiz head (runner + results share it) ===== */
+.quizHead {
+  margin-bottom: 26px;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--indigo);
+  margin: 0 0 8px;
+}
+
+.eyebrowLink {
+  color: var(--indigo);
+  text-decoration: none;
+}
+
+.eyebrowLink:hover {
+  text-decoration: underline;
+}
+
+.title {
+  font-family: var(--font-fraunces), serif;
+  font-weight: 500;
+  font-size: clamp(26px, 4vw, 34px);
+  line-height: 1.2;
+  margin: 0 0 8px;
+}
+
+.lede {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 56ch;
+}
+
+/* ===== Start screen ===== */
+.startCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 26px;
+}
+
+.factRow {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fact {
+  min-width: 0;
+}
+
+.factNum {
+  display: block;
+  font-family: var(--font-fraunces), serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.factLabel {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 3px;
+}
+
+/* ===== Progress ===== */
+.progressWrap {
+  margin-bottom: 20px;
+}
+
+.progressHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.progressStep {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.progressTrack {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--indigo);
+  transition: width 0.25s ease;
+}
+
+/* ===== Question card ===== */
+.questionCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 26px;
+  margin-bottom: 18px;
+}
+
+.kindPill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  margin-bottom: 12px;
+}
+
+.prompt {
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 500;
+  margin: 0 0 20px;
+  overflow-wrap: anywhere;
+}
+
+/* --- multiple choice --- */
+.options {
+  display: grid;
+  gap: 8px;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 13px 15px;
+  cursor: pointer;
+  background: var(--bg);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.option:hover {
+  border-color: var(--indigo);
+}
+
+.optionChosen {
+  border-color: var(--indigo);
+  background: var(--indigo-soft);
+}
+
+/* The real radio is kept in the DOM for keyboard and screen-reader use and
+   hidden visually; the lettered square is the visible control. */
+.optionInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.optionInput:focus-visible + .optionKey {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+.optionKey {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--line);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.optionChosen .optionKey {
+  background: var(--indigo);
+  color: #fff;
+}
+
+.optionText {
+  font-size: 14.5px;
+  line-height: 1.5;
+  padding-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* --- open ended --- */
+.answerBox {
+  width: 100%;
+  font-family: inherit;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 14px 15px;
+  resize: vertical;
+}
+
+.answerBox:focus {
+  outline: 2px solid var(--indigo);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+.answerHint {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 8px 0 0;
+}
+
+/* ===== Runner footer ===== */
+.runnerFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.footRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.saveState {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+/* ===== Review step ===== */
+.reviewList {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.reviewRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 13px 15px;
+  cursor: pointer;
+}
+
+.reviewRow:hover {
+  border-color: var(--indigo);
+}
+
+.reviewNum {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--line);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.reviewDone .reviewNum {
+  background: var(--sage-soft);
+  color: var(--sage);
+}
+
+.reviewBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.reviewPrompt {
+  font-size: 13.5px;
+  font-weight: 500;
+  margin: 0 0 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.reviewAnswer {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skipped {
+  color: var(--coral);
+}
+
+/* A skip costs exactly what a wrong answer costs, so the review step says so
+   rather than letting the user find out from the score. */
+.skipWarning {
+  border: 1px solid var(--amber);
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+/* ===== Grading ===== */
+.gradingCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 40px 26px;
+  text-align: center;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  border: 3px solid var(--indigo-soft);
+  border-top-color: var(--indigo);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.gradingTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.gradingSub {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  margin: 0 auto;
+  max-width: 44ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+  .progressFill {
+    transition: none;
+  }
+}
+
+/* ===== Results hero ===== */
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 26px;
+  margin-bottom: 18px;
+}
+
+/* --pct and --ring are set inline from the score. */
+.ring {
+  --pct: 0;
+  --ring: var(--line);
+  position: relative;
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: conic-gradient(
+    var(--ring) calc(var(--pct) * 1%),
+    var(--line) calc(var(--pct) * 1%)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ringInner {
+  position: absolute;
+  inset: 11px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ringNum {
+  font-family: var(--font-fraunces), serif;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ringLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+.heroBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.heroHeadline {
+  font-family: var(--font-fraunces), serif;
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.3;
+  margin: 0 0 8px;
+}
+
+.heroSub {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ===== Result rows ===== */
+.resultList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.resultCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  border-left: 3px solid var(--line);
+}
+
+/* Card edge tones. The pill tones below are separate classes because these
+   set only a border colour — sharing them left the pill with no background. */
+.correct {
+  border-left-color: var(--sage);
+}
+
+.partial {
+  border-left-color: var(--amber);
+}
+
+.wrong {
+  border-left-color: var(--coral);
+}
+
+/* Ungraded is not a wrong answer and must not be dressed as one. */
+.pending {
+  border-left-color: var(--line);
+}
+
+.resultHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.resultIndex {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+
+.resultPrompt {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.verdictLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.toneCorrect {
+  background: var(--sage-soft);
+  color: var(--sage);
+}
+
+.tonePartial {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+
+.toneWrong {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+.tonePending {
+  background: var(--line);
+  color: var(--ink-soft);
+}
+
+.verdictScore {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+/* --- the graded options list --- */
+.resultOptions {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.resultOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--bg);
+}
+
+.optionRight {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+}
+
+.optionPicked {
+  border-color: var(--coral);
+  background: var(--coral-soft);
+}
+
+.optionMark {
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  width: 18px;
+  padding-top: 1px;
+}
+
+.optionRight .optionMark {
+  color: var(--sage);
+}
+
+.optionPicked .optionMark {
+  color: var(--coral);
+}
+
+.optionNote {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-top: 1px;
+  color: var(--ink-soft);
+}
+
+/* --- open-ended answer + feedback --- */
+.yourAnswer {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 13px 15px;
+  margin-bottom: 12px;
+}
+
+.answerLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+
+.answerText {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.noAnswer {
+  font-size: 14px;
+  color: var(--coral);
+  margin: 0;
+  font-style: italic;
+}
+
+.feedback {
+  border-left: 2px solid var(--indigo-line);
+  padding: 2px 0 2px 14px;
+  margin-bottom: 12px;
+}
+
+.feedbackLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--indigo);
+  margin: 0 0 5px;
+}
+
+.feedbackText {
+  font-size: 13.5px;
+  line-height: 1.65;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.explanation {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.explanation strong {
+  color: var(--ink);
+}
+
+/* --- cited resources --- */
+.citedWrap {
+  border-top: 1px solid var(--line);
+  padding-top: 11px;
+}
+
+.citedLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 7px;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  text-decoration: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.chip:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+}
+
+.chipKind {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--indigo);
+  flex-shrink: 0;
+}
+
+/* ===== Not-scored banner =====
+   Distinct from .banner-error: nothing failed permanently and nothing was
+   lost, the quiz just cannot be scored until grading finishes. */
+.unscoredBanner {
+  border: 1px solid var(--amber);
+  background: var(--amber-soft);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+
+.unscoredTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--amber-ink);
+  margin: 0 0 6px;
+}
+
+.unscoredText {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 620px) {
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .resultHead {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .verdict {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .questionCard,
+  .startCard {
+    padding: 20px;
+  }
+
+  .quizCard {
+    flex-wrap: wrap;
+  }
+}

@@ -8,9 +8,12 @@ from pydantic import BaseModel
 
 from agent import embeddings, hermes
 from app.config import get_settings
+from app.dashboard import router as dashboard_router
 from app.db import connection, init_db
+from app.goals import router as goals_router
 from app.materials import router as materials_router
 from app.migrations import current_version, pending_count
+from app.quizzes import router as quizzes_router
 from app.sessions import router as sessions_router
 
 
@@ -47,6 +50,9 @@ app.add_middleware(
 
 app.include_router(sessions_router.router)
 app.include_router(materials_router.router)
+app.include_router(goals_router.router)
+app.include_router(quizzes_router.router)
+app.include_router(dashboard_router.router)
 
 
 @app.get("/health")

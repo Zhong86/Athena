@@ -6,6 +6,9 @@ UploadType = Literal["text", "pdf", "image"]
 IngestStatus = Literal[
     "pending", "extracting", "tagging", "embedding", "ready", "failed"
 ]
+# Where the original lives. 'local' bytes are on our disk; a 'drive' original
+# stays in the user's Drive and we hold a pointer plus the derived index.
+SourceOrigin = Literal["local", "drive"]
 
 
 class TextUpload(BaseModel):
@@ -24,6 +27,11 @@ class SourceFile(BaseModel):
     ingest_error: str | None = None
     byte_size: int | None = None
     chunk_count: int = 0
+    origin: SourceOrigin = "local"
+    # Only set for origin='drive'. The link the Sources list opens -- the file
+    # in Drive, not a copy of it here.
+    drive_url: str | None = None
+    drive_modified_at: str | None = None
 
 
 class UploadAccepted(BaseModel):
@@ -58,6 +66,10 @@ class TopicSource(BaseModel):
     chunks_in_topic: int
     chunks_total: int
     other_topics: list[str] = []
+    # Carried here too so a Drive file opens from the topic page the same way
+    # it does from the Sources list -- one row, one behaviour.
+    origin: SourceOrigin = "local"
+    drive_url: str | None = None
 
 
 class TopicDetail(BaseModel):

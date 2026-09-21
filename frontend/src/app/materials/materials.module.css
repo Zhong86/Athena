@@ -1,0 +1,463 @@
+.subtle {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ===== Topic grid ===== */
+.topicGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.topicCard {
+  display: block;
+  height: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.topicCard:hover {
+  border-color: var(--indigo);
+}
+
+.topicHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.topicName {
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.topicDesc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0 0 10px;
+  /* Descriptions are model-written and vary wildly in length; clamping keeps
+     the grid rows even. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.topicMeta {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.scorePill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+/* ===== Score tones (shared by the pill and the detail badge) ===== */
+.unknown {
+  background: var(--line);
+  color: var(--ink-soft);
+}
+.weak {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+.fair {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+.strong {
+  background: var(--sage-soft);
+  color: var(--sage);
+}
+
+/* ===== Topic detail head ===== */
+.topicHeadRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.topicTitle {
+  font-family: var(--font-fraunces), serif;
+  font-weight: 500;
+  font-size: clamp(26px, 4vw, 34px);
+  line-height: 1.2;
+  margin: 0 0 8px;
+}
+
+.topicLede {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 54ch;
+}
+
+.scoreBadge {
+  border-radius: 14px;
+  padding: 14px 18px;
+  text-align: center;
+  flex-shrink: 0;
+  min-width: 84px;
+}
+
+.scoreNum {
+  display: block;
+  font-family: var(--font-fraunces), serif;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.scoreLabel {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* ===== Upload form ===== */
+.uploadForm {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+/* Visually hidden, but still focusable and still the thing that opens the
+   picker when its label is activated. */
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 28px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropZone:hover,
+.dropZoneActive {
+  border-color: var(--indigo);
+  background: var(--indigo-soft);
+}
+
+.fileInput:focus-visible + .dropZone {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+
+.dropIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+.dropTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.dropHint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  max-width: 46ch;
+}
+
+.pickedList {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.pickedItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+}
+
+.pickedName {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.formActions .hint {
+  margin: 0;
+}
+
+/* ===== Source file list ===== */
+.fileList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.fileRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fileIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+  background: var(--line);
+  color: var(--ink-soft);
+}
+
+.pdf {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+.image {
+  background: var(--sage-soft);
+  color: var(--sage);
+}
+.text {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.fileTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.fileLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.fileLink:hover {
+  color: var(--indigo);
+  text-decoration: underline;
+}
+
+.external {
+  font-size: 11px;
+  margin-left: 5px;
+  color: var(--ink-soft);
+}
+
+.fileSub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Marks a row whose original is not ours. Quiet on purpose -- the status pill
+   is the thing worth looking at, this is just provenance. Inline-block rather
+   than a flex item so the " · "-joined metadata after it stays one run of
+   text that wraps normally. */
+.originTag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  margin-right: 7px;
+  border-radius: 999px;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+.fileError {
+  font-size: 12.5px;
+  color: var(--coral);
+  line-height: 1.5;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* Finished-but-degraded: worth reading, not worth alarming over. */
+.fileNote {
+  font-size: 12.5px;
+  color: var(--amber-ink);
+  line-height: 1.5;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.degraded {
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+}
+
+.fileActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.statusPill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--line);
+  color: var(--ink-soft);
+}
+
+/* Every in-flight state reads the same: something is happening, wait. */
+.pending,
+.extracting,
+.tagging,
+.embedding {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+.ready {
+  background: var(--sage-soft);
+  color: var(--sage);
+}
+
+.failed {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+/* ===== Chunk preview ===== */
+.chunkList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.chunkRow {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.chunkSource {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 6px;
+}
+
+.chunkText {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 560px) {
+  .topicHeadRow {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .fileRow {
+    flex-wrap: wrap;
+  }
+
+  .fileActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

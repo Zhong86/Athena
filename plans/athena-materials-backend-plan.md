@@ -70,6 +70,41 @@ Uploaded originals go to `backend/data/uploads/<source_file_id>/<filename>` — 
 so a failed OCR/extract can be retried without a re-upload. Add
 `Settings.uploads_path = BACKEND_DIR / "data" / "uploads"`.
 
+**Drive rescope (Zhong, 2026-09-21).** Google Drive is in MVP scope and is the primary
+material source; the local upload path above stays as a parallel, OAuth-free fallback.
+A Drive-origin file keeps **no bytes on the VPS** — we store a pointer and the derived
+index only:
+
+```sql
+ALTER TABLE source_files ADD COLUMN origin TEXT NOT NULL DEFAULT 'local'
+    CHECK (origin IN ('local','drive'));
+ALTER TABLE source_files ADD COLUMN drive_file_id TEXT;
+ALTER TABLE source_files ADD COLUMN drive_modified_at TEXT;
+CREATE UNIQUE INDEX idx_source_files_drive ON source_files (drive_file_id)
+    WHERE drive_file_id IS NOT NULL;
+```
+
+`stored_path` is therefore NULL for `origin='drive'`, and retry (§4) re-fetches from the
+Drive API instead of reading disk. `drive_modified_at` is what makes staleness
+detectable — if Drive reports a newer mtime than the stored one, the file's chunks are
+out of date and it can be re-ingested.
+
+The split to keep straight: **the original is theirs and stays in Drive; the index is
+ours and stays here.** Dropping the index too (and re-fetching from Drive per query)
+was considered and rejected — it trades a few MB of text for losing semantic search,
+and puts an OAuth round-trip in the hot path of every quiz generation.
+
+**Status.** The schema and read path landed in `migrations/005_drive_sources.sql`, with
+one addition to the block above: `drive_url` holds Drive's `webViewLink` rather than
+deriving it, because the URL shape differs between a binary file (`/file/d/<id>/view`)
+and a native Doc (`/document/d/<id>/edit`) and only the API knows which it is. The
+Sources list renders a Drive row — name, time, size, opening the original in Drive on
+click. Still to build: the OAuth flow, the file picker, and the `fetching` pipeline
+stage (§4) that downloads from the API instead of reading disk. Until those exist no
+Drive row can be created outside a test, and the `fetching`/`digesting` statuses are
+deliberately *not* yet in the `ingest_status` CHECK — adding them means a full SQLite
+table rebuild, and nothing emits them today.
+
 ---
 
 ## 2. Module layout
@@ -230,7 +265,36 @@ parallel calls would just queue anyway.
 `embed_passages()` over chunk texts in batches of 64, `upsert_chunks()` into LanceDB,
 then one `UPDATE chunks SET embedding_ref = ?` per row inside a single transaction.
 
-### 3.5 Orchestration (`pipeline.py`)
+### 3.5 Digest (`digest.py`)
+
+After embedding, regenerate a short digest for every topic this upload touched:
+
+```sql
+ALTER TABLE topics ADD COLUMN summary TEXT;
+ALTER TABLE topics ADD COLUMN key_concepts TEXT;   -- JSON array of strings
+ALTER TABLE topics ADD COLUMN digest_updated_at TEXT;
+```
+
+`summarize_topic(topic_id) -> None` samples that topic's chunks (first N + a spread
+across `order_index`, capped to fit one Hermes call) and asks for `{"summary": "…2–3
+sentences…", "key_concepts": ["…"]}`.
+
+This is the counterpart to `search_materials`, and the distinction is the whole point:
+
+| question | answered by | cost |
+|---|---|---|
+| "what is this student studying, and how well?" | topic digests + `user_understanding` | one SQLite read |
+| "quote me something from *their* lecture 7" | `search_materials` | embed + vector search |
+
+Steering questions are asked constantly — at the top of every session, by the Dashboard
+priority feed, by `personalize_decomposition`. Paying for a vector search to answer them
+is waste. Digests make the common case free and leave retrieval for when grounding in
+the student's actual words genuinely matters.
+
+Failure here is non-fatal: a topic with a NULL summary just falls back to its
+`description`. Never fail an upload over a digest.
+
+### 3.6 Orchestration (`pipeline.py`)
 
 ```python
 async def ingest(source_file_id: int) -> None
@@ -239,9 +303,14 @@ async def ingest(source_file_id: int) -> None
 Owns the status transitions and is the only place that writes `ingest_status`:
 
 ```
-pending → extracting → tagging → embedding → ready
-                   ↘ (any exception) ↘ failed + ingest_error
+pending → fetching → extracting → tagging → embedding → digesting → ready
+                              ↘ (any exception) ↘ failed + ingest_error
 ```
+
+`fetching` is a no-op for `origin='local'` (bytes are already on disk) and the Drive API
+download for `origin='drive'`. `digesting` is best-effort — an exception there logs and
+still lands on `ready`, since the chunks are already searchable. Both need adding to the
+`ingest_status` CHECK constraint.
 
 Each stage opens its own short `connection()` and commits — a 5-minute ingest must not
 hold a write transaction open the whole time, and a crash mid-run leaves the file in a
@@ -267,6 +336,14 @@ not `pending`/`failed`.
 | `GET` | `/materials/topics/{id}` | topic-detail: topic + per-source `9 of 34 chunks` rows |
 | `GET` | `/materials/topics/{id}/chunks` | paginated chunk text, `order_index` order |
 | `POST` | `/materials/search` | HTTP face of `search_materials` |
+| `GET` | `/materials/drive/files` | browse/search the user's Drive for the picker (`q`, `folder_id`) |
+| `POST` | `/materials/drive/ingest` | JSON `{drive_file_ids: [...]}` → 202, one `source_file` row each |
+| `GET` | `/materials/drive/stale` | files whose Drive `modifiedTime` > stored `drive_modified_at` |
+
+Drive endpoints 401 with a re-auth hint when no token is stored, rather than 500. Drive
+MIME types map onto the existing `upload_type` CHECK: native Docs export to `text/plain`
+→ `text`, `application/pdf` → `pdf`, `image/*` → `image`, everything else is rejected
+with a 415 before a row is written. The 10MB cap applies to the fetched bytes too.
 
 `upload_type` is inferred from content-type/extension and validated against the
 `source_files` CHECK constraint (`text`/`pdf`/`image`) — reject anything else with a 415
@@ -359,6 +436,22 @@ fastembed with an actual lecture PDF.
 Steps 2–4 are independent of Hermes entirely and can land before the gateway is even
 up.
 
+Steps 1–10 are built (commit `85f592c`). The Drive rescope continues from there:
+
+11. `005_materials_drive.sql` — `origin`/`drive_file_id`/`drive_modified_at` on
+    `source_files`, `summary`/`key_concepts`/`digest_updated_at` on `topics`, widened
+    `ingest_status` CHECK.
+12. `digest.py` + regenerate digests for existing topics. No OAuth needed — this lands
+    independently and is the cheaper half of the value.
+13. Google OAuth (Calendar + Drive scopes, one consent screen) — built on the
+    `connections` table, see `athena-connections-plan.md`. Not a bespoke token store.
+14. `drive.py` client: list/search, metadata, download, Docs export.
+15. `fetching` stage in `pipeline.py`; retry reads from Drive when `origin='drive'`.
+16. Drive endpoints + picker UI.
+
+12 before 13 deliberately — the digest work is the part the agent actually reasons over,
+and it shouldn't be blocked behind an OAuth consent screen.
+
 ---
 
 ## Open items
@@ -371,5 +464,20 @@ up.
 - **Whiteboard/handwriting photos** — tesseract is weak on these, and the mockup's IMG
   row is exactly that case. Check the output against a real photo before the demo; if
   it's unusable, the Hermes vision path above is the fallback despite its downsides.
+- ~~**Drive token storage + refresh**~~ — resolved: the `connections` table owns it, with
+  an encrypted `secret` column and `access.require('google', 'drive.read')` as the single
+  gate. See `athena-connections-plan.md`.
+- **Drive re-ingest on staleness** — `GET /materials/drive/stale` detects it; nothing
+  acts on it yet. Deciding whether the CRON routine auto-re-ingests or just surfaces it
+  under Knowledge-Sync is deferred until the sync job exists.
 - **Topic merge/rename** — auto-created topics will accumulate near-duplicates over
   several uploads. No merge endpoint in this step; revisit after seeing real output.
+- **Short multi-topic documents collapse to one topic** — known and accepted for now
+  (Zhong, 2026-09-21). The chunker merges paragraphs greedily up to `MAX_CHARS` using
+  size as the only boundary signal, so a 900-char note covering three subjects becomes
+  one chunk and therefore one topic. Confirmed against the real model: a three-paragraph
+  thermodynamics note tagged entirely as "Carnot cycle", and
+  `search_materials("thermodynamics", "entropy")` fell back to an unfiltered search
+  because no "Thermodynamics" topic was ever created. Multi-page PDFs are unaffected
+  (they produce plenty of chunks). If a demo uses short pasted notes, the fix is to stop
+  merging paragraphs already ≥300 chars and merge only smaller fragments.

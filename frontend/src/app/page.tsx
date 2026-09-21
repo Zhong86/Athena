@@ -1,17 +1,22 @@
+import Link from "next/link";
+
 import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
 import {
-  DUMMY_CHECK_IN,
-  DUMMY_DEADLINES,
-  DUMMY_WEAK_TOPICS,
-  type Deadline,
-} from "@/lib/dummy";
+  ApiError,
+  getDashboard,
+  goalSubtitle,
+  listGoals,
+  type Dashboard,
+  type GoalCard,
+} from "@/lib/api";
+import { quoteOfTheDay } from "@/lib/quotes";
 
 import styles from "./dashboard.module.css";
 
 export const metadata = { title: "Dashboard · Αθηνα" };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 type Health = {
   status: string;
@@ -24,6 +29,14 @@ async function getHealth(): Promise<Health | null> {
     const res = await fetch(`${API_BASE}/health`, { cache: "no-store" });
     if (!res.ok) return null;
     return (await res.json()) as Health;
+  } catch {
+    return null;
+  }
+}
+
+async function getDashboardSafe(): Promise<Dashboard | null> {
+  try {
+    return await getDashboard();
   } catch {
     return null;
   }
@@ -42,44 +55,47 @@ function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-function FeedRow({ deadline }: { deadline: Deadline }) {
+function GoalProgressRow({ goal }: { goal: GoalCard }) {
   return (
-    <li className={styles.feedItem}>
-      <span className={`${styles.dot} ${styles[deadline.urgency]}`} />
-      <div className={styles.meta}>
-        <p className={styles.title}>{deadline.title}</p>
-        <p className={styles.reason}>
-          {deadline.weakTopic ? (
-            <>
-              <span className={styles.tagWeak}>{deadline.weakTopic}</span> shows up
-              here
-            </>
-          ) : (
-            deadline.course
-          )}{" "}
-          · {deadline.dueLabel}
-        </p>
-      </div>
-      {deadline.startable ? (
-        <button type="button" className="btn-inline">
-          Start
-        </button>
-      ) : (
-        <span
-          className={`${styles.when} ${
-            deadline.urgency === "urgent" ? styles.whenUrgent : ""
-          }`}
+    <li>
+      <Link href={`/goal/${goal.id}`} className={styles.goalRow}>
+        <div
+          className={styles.ring}
+          style={{ "--pct": goal.percent } as React.CSSProperties}
+          aria-hidden="true"
         >
-          {deadline.weakTopic ? "Bumped up" : deadline.dueLabel}
+          <span>{goal.percent >= 100 ? "✓" : `${goal.percent}%`}</span>
+        </div>
+        <div className={styles.meta}>
+          <p className={styles.title}>{goal.short_name || goal.title}</p>
+          <p className={styles.reason}>{goalSubtitle(goal).join(" · ")}</p>
+        </div>
+        <span className={styles.chevron} aria-hidden="true">
+          ›
         </span>
-      )}
+      </Link>
     </li>
   );
 }
 
 export default async function DashboardPage() {
-  const health = await getHealth();
-  const weakNames = DUMMY_WEAK_TOPICS.map((topic) => topic.name);
+  const quote = quoteOfTheDay();
+
+  let goalsError: string | null = null;
+  const [health, dashboard, goals] = await Promise.all([
+    getHealth(),
+    getDashboardSafe(),
+    listGoals().catch((err) => {
+      goalsError = err instanceof ApiError ? err.message : "Something went wrong.";
+      return [] as GoalCard[];
+    }),
+  ]);
+
+  const weakNames = dashboard?.weak_topics.map((topic) => topic.name) ?? [];
+  const checkIn = dashboard?.check_in ?? null;
+  const activeGoals = goals
+    .filter((g) => g.status === "committed" && g.percent < 100)
+    .slice(0, 3);
 
   return (
     <>
@@ -91,51 +107,81 @@ export default async function DashboardPage() {
           <p>Here&rsquo;s what&rsquo;s worth your attention today.</p>
         </div>
 
+        <div className="section">
+          <blockquote className={styles.quoteCard}>
+            <p className={styles.quoteText}>&ldquo;{quote.text}&rdquo;</p>
+            <footer className={styles.quoteAuthor}>— {quote.author}</footer>
+          </blockquote>
+        </div>
+
+        {goalsError ? <div className="banner-error">{goalsError}</div> : null}
+
+        <div className="section">
+          <div className="section-head">
+            <h2>Goals in progress</h2>
+            <Link href="/goal" className={styles.subtleLink}>
+              See all
+            </Link>
+          </div>
+
+          {activeGoals.length ? (
+            <ul className={styles.goalList}>
+              {activeGoals.map((goal) => (
+                <GoalProgressRow key={goal.id} goal={goal} />
+              ))}
+            </ul>
+          ) : (
+            <div className={styles.emptyCard}>
+              <p>No goals in progress yet.</p>
+              <Link href="/goal/new" className="btn-inline">
+                Start a goal
+              </Link>
+            </div>
+          )}
+        </div>
+
         {/* Freshest information first: what the last check-in actually noticed
-            is the reason the feed below is ordered the way it is. */}
+            is the reason weak topics below are worth attention. */}
         <div className="section">
           <div className="section-head">
             <h2>Last check-in</h2>
           </div>
 
-          <div className={styles.checkinCard}>
-            <h3>{DUMMY_CHECK_IN.headline}</h3>
-            <p>{DUMMY_CHECK_IN.body}</p>
-          </div>
-        </div>
-
-        <div className="section">
-          <div className={styles.weakAlert}>
-            <span className={styles.weakAlertIcon}>◆</span>
-            <div>
-              <p className={styles.weakAlertTitle}>
-                {weakNames.length} weak {weakNames.length === 1 ? "topic is" : "topics are"}{" "}
-                shaping today&rsquo;s priorities
-              </p>
-              <p className={styles.weakAlertBody}>
-                <strong>{joinNames(weakNames)}</strong> came up as struggles in past
-                check-ins — deadlines tied to them are ranked higher below.
+          {checkIn ? (
+            <div className={styles.checkinCard}>
+              <h3>{checkIn.topic_name}</h3>
+              <p>{checkIn.reason}</p>
+            </div>
+          ) : (
+            <div className={styles.checkinCard}>
+              <h3>No check-ins yet</h3>
+              <p>
+                Upload materials and take a quiz or two — once Hermes scores a
+                topic, this card shows what it noticed.
               </p>
             </div>
-          </div>
+          )}
         </div>
 
-        <div className="section">
-          <div className="section-head">
-            <h2>Priority feed</h2>
+        {weakNames.length > 0 && (
+          <div className="section">
+            <div className={styles.weakAlert}>
+              <span className={styles.weakAlertIcon}>◆</span>
+              <div>
+                <p className={styles.weakAlertTitle}>
+                  {weakNames.length} weak {weakNames.length === 1 ? "topic is" : "topics are"}{" "}
+                  shaping today&rsquo;s priorities
+                </p>
+                <p className={styles.weakAlertBody}>
+                  <strong>{joinNames(weakNames)}</strong> came up as struggles in past
+                  check-ins.
+                </p>
+              </div>
+            </div>
           </div>
+        )}
 
-          <ul className={styles.feedList}>
-            {DUMMY_DEADLINES.map((deadline) => (
-              <FeedRow key={deadline.id} deadline={deadline} />
-            ))}
-          </ul>
-        </div>
-
-        {/* The mockup's footnote claims a portal/Calendar sync that does not
-            exist yet. Until it does, report what is actually true. */}
         <p className="footnote">
-          Dashboard content is placeholder data ·{" "}
           {health
             ? `backend ${health.status} · schema ${health.sqlite.schema_version ?? "none"} · hermes ${health.hermes ? "reachable" : "unreachable"}`
             : "backend unreachable"}

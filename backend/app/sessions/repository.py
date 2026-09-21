@@ -37,30 +37,35 @@ def get(conn: sqlite3.Connection, session_id: int) -> dict[str, Any] | None:
     return _row_to_dict(row) if row else None
 
 
+def _filters(type: str | None, archived: bool) -> tuple[str, list[Any]]:
+    """Shared WHERE for list_/count so the two can never disagree about which
+    rows are in the log -- a mismatch would show `5 chats` above 4 rows."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    if type:
+        clauses.append("type = ?")
+        params.append(type)
+    clauses.append("archived_at IS NOT NULL" if archived else "archived_at IS NULL")
+    return " WHERE " + " AND ".join(clauses), params
+
+
 def list_(
     conn: sqlite3.Connection,
     *,
     type: str | None = None,
+    archived: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Newest first -- the Sessions log is reverse-chronological."""
-    sql = "SELECT * FROM sessions"
-    params: list[Any] = []
-    if type:
-        sql += " WHERE type = ?"
-        params.append(type)
-    sql += " ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?"
-    params += [limit, offset]
-    return [_row_to_dict(r) for r in conn.execute(sql, params)]
+    where, params = _filters(type, archived)
+    sql = f"SELECT * FROM sessions{where} ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?"
+    return [_row_to_dict(r) for r in conn.execute(sql, [*params, limit, offset])]
 
 
-def count(conn: sqlite3.Connection, *, type: str | None = None) -> int:
-    if type:
-        sql, params = "SELECT COUNT(*) FROM sessions WHERE type = ?", (type,)
-    else:
-        sql, params = "SELECT COUNT(*) FROM sessions", ()
-    return conn.execute(sql, params).fetchone()[0]
+def count(conn: sqlite3.Connection, *, type: str | None = None, archived: bool = False) -> int:
+    where, params = _filters(type, archived)
+    return conn.execute(f"SELECT COUNT(*) FROM sessions{where}", params).fetchone()[0]
 
 
 def append_messages(
@@ -81,6 +86,45 @@ def append_messages(
         (json.dumps(payload), session_id),
     )
     return payload
+
+
+def update(
+    conn: sqlite3.Connection,
+    session_id: int,
+    *,
+    title: str | None = None,
+    archived_at: str | None = None,
+    clear_title: bool = False,
+    clear_archived: bool = False,
+) -> dict[str, Any] | None:
+    """Patch the renameable/archivable columns. The explicit clear_* flags
+    exist because `None` here means "leave alone", not "set to NULL"."""
+    sets: list[str] = []
+    params: list[Any] = []
+    if clear_title:
+        sets.append("title = NULL")
+    elif title is not None:
+        sets.append("title = ?")
+        params.append(title)
+    if clear_archived:
+        sets.append("archived_at = NULL")
+    elif archived_at is not None:
+        sets.append("archived_at = ?")
+        params.append(archived_at)
+
+    if not sets:
+        return get(conn, session_id)
+
+    row = conn.execute(
+        f"UPDATE sessions SET {', '.join(sets)} WHERE id = ? RETURNING *",
+        [*params, session_id],
+    ).fetchone()
+    return _row_to_dict(row) if row else None
+
+
+def delete(conn: sqlite3.Connection, session_id: int) -> bool:
+    """Permanent. quiz_attempts cascade off the session row."""
+    return conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,)).rowcount > 0
 
 
 def set_summary(conn: sqlite3.Connection, session_id: int, summary: str) -> None:

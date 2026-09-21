@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # Google OAuth (Calendar scope only, per Step 5)
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8001/auth/google/callback"
+    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
 
     # Storage
     sqlite_path: Path = BACKEND_DIR / "data" / "athena.db"

@@ -11,6 +11,7 @@ from app.sessions.schemas import (
     SessionCreate,
     SessionPage,
     SessionType,
+    SessionUpdate,
 )
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -24,13 +25,16 @@ SYSTEM_PROMPT = (
 @router.get("", response_model=SessionPage)
 def list_sessions(
     type: SessionType | None = Query(None, description="Sessions log filter bar"),
+    archived: bool = Query(False, description="List the archive instead of the log"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> SessionPage:
     with connection() as conn:
         return SessionPage(
-            items=repo.list_(conn, type=type, limit=limit, offset=offset),
-            total=repo.count(conn, type=type),
+            items=repo.list_(
+                conn, type=type, archived=archived, limit=limit, offset=offset
+            ),
+            total=repo.count(conn, type=type, archived=archived),
             limit=limit,
             offset=offset,
         )
@@ -49,6 +53,36 @@ def get_session(session_id: int) -> Session:
     if session is None:
         raise HTTPException(404, f"session {session_id} not found")
     return Session(**session)
+
+
+@router.patch("/{session_id}", response_model=Session)
+def update_session(session_id: int, body: SessionUpdate) -> Session:
+    """Rename and archive/unarchive. Fields left out of the body are untouched;
+    an explicit `"title": null` drops back to the derived title."""
+    sent = body.model_fields_set
+    title = body.title.strip() if body.title else None
+    if "title" in sent and body.title is not None and not title:
+        raise HTTPException(422, "title cannot be blank")
+
+    with connection() as conn:
+        updated = repo.update(
+            conn,
+            session_id,
+            title=title,
+            clear_title="title" in sent and body.title is None,
+            archived_at=utc_now_iso() if body.archived else None,
+            clear_archived=body.archived is False,
+        )
+    if updated is None:
+        raise HTTPException(404, f"session {session_id} not found")
+    return Session(**updated)
+
+
+@router.delete("/{session_id}", status_code=204)
+def delete_session(session_id: int) -> None:
+    with connection() as conn:
+        if not repo.delete(conn, session_id):
+            raise HTTPException(404, f"session {session_id} not found")
 
 
 @router.post("/{session_id}/chat", response_model=ChatReply)

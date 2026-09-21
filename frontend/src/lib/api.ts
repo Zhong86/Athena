@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 /** Matches the CHECK constraint on sessions.type. */
 export type SessionType = "chat" | "quiz" | "cron" | "agent_action";
@@ -11,6 +11,9 @@ export type Session = {
   started_at: string;
   payload: { messages?: ChatMessage[] } | null;
   summary: string | null;
+  /** User-set override; null means fall back to the derived title. */
+  title: string | null;
+  archived_at: string | null;
 };
 
 export type SessionPage = {
@@ -23,11 +26,14 @@ export type SessionPage = {
 export class ApiError extends Error {}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // FormData must set its own Content-Type so the multipart boundary survives.
+  const isForm = init?.body instanceof FormData;
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       cache: "no-store",
-      headers: { "Content-Type": "application/json" },
+      headers: isForm ? undefined : { "Content-Type": "application/json" },
       ...init,
     });
   } catch {
@@ -46,16 +52,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(detail);
   }
 
+  // DELETE returns 204 with no body; res.json() would throw on it.
+  if (res.status === 204) return undefined as T;
+
   return res.json() as Promise<T>;
 }
 
 export function listSessions(params: {
   type?: SessionType;
+  archived?: boolean;
   limit?: number;
   offset?: number;
 }): Promise<SessionPage> {
   const qs = new URLSearchParams();
   if (params.type) qs.set("type", params.type);
+  if (params.archived) qs.set("archived", "true");
   if (params.limit) qs.set("limit", String(params.limit));
   if (params.offset) qs.set("offset", String(params.offset));
   const query = qs.toString();
@@ -73,6 +84,21 @@ export function createSession(type: SessionType = "chat"): Promise<Session> {
   });
 }
 
+/** Omitted fields are left alone; `title: null` clears the override. */
+export function updateSession(
+  id: number,
+  patch: { title?: string | null; archived?: boolean },
+): Promise<Session> {
+  return request<Session>(`/sessions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteSession(id: number): Promise<void> {
+  return request<void>(`/sessions/${id}`, { method: "DELETE" });
+}
+
 export function sendChat(
   id: number,
   message: string,
@@ -83,7 +109,676 @@ export function sendChat(
   });
 }
 
+/* ---------- materials ---------- */
+
+/** Mirrors the CHECK constraint on source_files.ingest_status. */
+export type IngestStatus =
+  | "pending"
+  | "extracting"
+  | "tagging"
+  | "embedding"
+  | "ready"
+  | "failed";
+
+export type UploadType = "text" | "pdf" | "image";
+
+/** Where the original lives. A `drive` file is never copied to our disk. */
+export type SourceOrigin = "local" | "drive";
+
+export type SourceFile = {
+  id: number;
+  filename: string;
+  upload_type: UploadType;
+  uploaded_at: string;
+  ingest_status: IngestStatus;
+  ingest_error: string | null;
+  byte_size: number | null;
+  chunk_count: number;
+  origin: SourceOrigin;
+  /** Drive's webViewLink. Only set when `origin` is `drive`. */
+  drive_url: string | null;
+  drive_modified_at: string | null;
+};
+
+export type UploadAccepted = {
+  source_file_id: number;
+  ingest_status: IngestStatus;
+  filename: string;
+  upload_type: UploadType;
+};
+
+export type Topic = {
+  id: number;
+  name: string;
+  description: string | null;
+  /** -1 means no signal yet — not a score of zero. */
+  user_understanding: number;
+  auto_created: boolean;
+  chunk_count: number;
+  source_count: number;
+};
+
+export type TopicSource = {
+  source_file_id: number;
+  filename: string;
+  upload_type: UploadType;
+  uploaded_at: string;
+  ingest_status: IngestStatus;
+  chunks_in_topic: number;
+  chunks_total: number;
+  other_topics: string[];
+  origin: SourceOrigin;
+  drive_url: string | null;
+};
+
+export type TopicDetail = Omit<Topic, "source_count"> & { sources: TopicSource[] };
+
+export type Chunk = {
+  id: number;
+  text: string;
+  topic_id: number | null;
+  source_file_id: number;
+  filename: string;
+  order_index: number;
+};
+
+export type ChunkPage = {
+  items: Chunk[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export function listTopics(): Promise<Topic[]> {
+  return request<Topic[]>("/materials/topics");
+}
+
+export function getTopic(id: number): Promise<TopicDetail> {
+  return request<TopicDetail>(`/materials/topics/${id}`);
+}
+
+export function getTopicChunks(id: number, limit = 100): Promise<ChunkPage> {
+  return request<ChunkPage>(`/materials/topics/${id}/chunks?limit=${limit}`);
+}
+
+export function listUploads(): Promise<SourceFile[]> {
+  return request<SourceFile[]>("/materials/uploads");
+}
+
+export function getUpload(id: number): Promise<SourceFile> {
+  return request<SourceFile>(`/materials/uploads/${id}`);
+}
+
+export function uploadText(filename: string, text: string): Promise<UploadAccepted> {
+  return request<UploadAccepted>("/materials/uploads/text", {
+    method: "POST",
+    body: JSON.stringify({ filename, text }),
+  });
+}
+
+/**
+ * Posted straight to FastAPI rather than through a Server Action: actions cap
+ * request bodies at 1MB by default, and the backend accepts PDFs up to 10MB.
+ */
+export function uploadFile(file: File): Promise<UploadAccepted> {
+  const form = new FormData();
+  form.append("file", file);
+  return request<UploadAccepted>("/materials/uploads", { method: "POST", body: form });
+}
+
+export function retryUpload(id: number): Promise<SourceFile> {
+  return request<SourceFile>(`/materials/uploads/${id}/retry`, { method: "POST" });
+}
+
+export function deleteUpload(id: number): Promise<void> {
+  return request<void>(`/materials/uploads/${id}`, { method: "DELETE" });
+}
+
+/* ---------- goals ---------- */
+
+export type GoalStatus = "draft" | "committed" | "archived";
+export type GoalCategory = "academic" | "career";
+/** The spec's four milestone states. `rejected` only exists mid-draft. */
+export type MilestoneStatus = "proposed" | "approved" | "edited" | "rejected";
+export type MilestoneSource = "materials" | "research" | "user";
+export type ProgressStatus = "upcoming" | "current" | "done";
+
+export type SourceChunk = {
+  chunk_id: number;
+  topic_id: number | null;
+  topic_name: string | null;
+  source_file_id: number;
+  source_filename: string;
+};
+
+/** A committed milestone row. Everything below `reason` is accordion content. */
+export type Milestone = {
+  id: number;
+  state_id: string | null;
+  title: string;
+  description: string | null;
+  order: number;
+  status: MilestoneStatus;
+  progress_status: ProgressStatus;
+  reason: string | null;
+  reason_long: string | null;
+  est_effort: string | null;
+  unlocks_after_title: string | null;
+  source: MilestoneSource;
+  related_topic_ids: number[];
+  source_chunks: SourceChunk[];
+};
+
+export type TopicStrength = {
+  topic_id: number;
+  name: string;
+  user_understanding: number;
+  strength: "unknown" | "weak" | "fair" | "strong";
+};
+
+export type GoalCard = {
+  id: number;
+  title: string;
+  short_name: string | null;
+  status: GoalStatus;
+  category: GoalCategory;
+  course_code: string | null;
+  due_at: string | null;
+  percent: number;
+  done_count: number;
+  total_count: number;
+  created_at: string;
+  focus_title: string | null;
+};
+
+export type GoalDetail = {
+  id: number;
+  title: string;
+  short_name: string | null;
+  description: string | null;
+  status: GoalStatus;
+  category: GoalCategory;
+  course_code: string | null;
+  due_at: string | null;
+  derivation: string | null;
+  order_rationale: string | null;
+  created_at: string;
+  updated_at: string | null;
+  percent: number;
+  done_count: number;
+  total_count: number;
+  milestones: Milestone[];
+  topic_strengths: TopicStrength[];
+};
+
+/**
+ * A milestone as it exists *inside the graph*, before commit: `id` is the state
+ * id (`m3`), not a row id, and `unlocks_after` points at another state id. This
+ * is the shape the approval interrupt carries, and the only one the wizard sees.
+ */
+export type DraftMilestone = {
+  id: string;
+  title: string;
+  description: string;
+  order: number;
+  status: MilestoneStatus;
+  reason: string;
+  source: MilestoneSource;
+  related_topic_ids: number[];
+  est_effort?: string;
+  reason_long?: string;
+  unlocks_after?: string;
+  source_chunk_ids?: number[];
+};
+
+export type ClarifyTurn = { question: string; answer: string };
+
+export type ClarifyInterrupt = {
+  kind: "clarify";
+  questions: string[];
+  /** Quick-reply chips, one list per question. May be shorter than `questions`. */
+  suggested_answers: string[][];
+  clarification_turns: ClarifyTurn[];
+};
+
+export type ApprovalInterrupt = {
+  kind: "approval";
+  milestones: DraftMilestone[];
+  decomposition_source: "materials" | "research" | "mixed" | null;
+  clarification_turns: ClarifyTurn[];
+  clarified_goal: string | null;
+};
+
+export type RoadmapInterrupt = ClarifyInterrupt | ApprovalInterrupt;
+
+/**
+ * One shape for every graph endpoint. `interrupt: null` with a `goal_id` means
+ * the run committed and the wizard is done.
+ */
+export type RoadmapEnvelope = {
+  thread_id: string;
+  status: "clarifying" | "decomposing" | "awaiting_approval" | "committed" | "abandoned";
+  interrupt: RoadmapInterrupt | null;
+  goal_id: number | null;
+  /** The student's opening line — the one thing the interrupts do not carry. */
+  raw_goal_input: string | null;
+};
+
+/** The five resume actions `approve.py` understands, plus the clarify answer. */
+export type ResumeAction =
+  | { answers: string[] }
+  | { action: "approve_all" }
+  | { action: "reorder"; ids_in_order: string[] }
+  | { action: "edit"; milestone_id: string; fields: Partial<DraftMilestone> }
+  | { action: "reject"; milestone_id: string }
+  | {
+      action: "add_milestone";
+      fields: {
+        title: string;
+        description?: string;
+        est_effort?: string;
+        related_topic_ids?: number[];
+        new_topic_name?: string;
+        position?: number;
+      };
+    };
+
+/** An unfinished graph run, so a parked draft is reachable after a reload. */
+export type RoadmapRun = {
+  thread_id: string;
+  status: string;
+  raw_goal_input: string;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export function listUnfinishedRuns(): Promise<RoadmapRun[]> {
+  return request<RoadmapRun[]>("/goals/roadmap");
+}
+
+export function listGoals(): Promise<GoalCard[]> {
+  return request<GoalCard[]>("/goals");
+}
+
+export function getGoal(id: number): Promise<GoalDetail> {
+  return request<GoalDetail>(`/goals/${id}`);
+}
+
+export function updateGoal(
+  id: number,
+  fields: { title?: string; short_name?: string; status?: GoalStatus; due_at?: string; description?: string },
+): Promise<GoalDetail> {
+  return request<GoalDetail>(`/goals/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(fields),
+  });
+}
+
+export function startRoadmap(raw_goal_input: string): Promise<RoadmapEnvelope> {
+  return request<RoadmapEnvelope>("/goals/roadmap", {
+    method: "POST",
+    body: JSON.stringify({ raw_goal_input }),
+  });
+}
+
+export function resumeRoadmap(
+  threadId: string,
+  payload: ResumeAction,
+): Promise<RoadmapEnvelope> {
+  return request<RoadmapEnvelope>(`/goals/roadmap/${threadId}/resume`, {
+    method: "POST",
+    body: JSON.stringify({ payload }),
+  });
+}
+
+/** Reads the parked interrupt without advancing the graph — what "Save and exit" comes back to. */
+export function getRoadmapRun(threadId: string): Promise<RoadmapEnvelope> {
+  return request<RoadmapEnvelope>(`/goals/roadmap/${threadId}`);
+}
+
+export function abandonRoadmap(threadId: string): Promise<void> {
+  return request<void>(`/goals/roadmap/${threadId}`, { method: "DELETE" });
+}
+
+export function addMilestone(
+  goalId: number,
+  body: {
+    title: string;
+    description?: string;
+    reason?: string;
+    est_effort?: string;
+    related_topic_ids?: number[];
+    new_topic_name?: string;
+    position?: number;
+  },
+): Promise<Milestone> {
+  return request<Milestone>(`/goals/${goalId}/milestones`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateMilestone(
+  goalId: number,
+  milestoneId: number,
+  fields: {
+    title?: string;
+    description?: string;
+    reason?: string;
+    reason_long?: string;
+    est_effort?: string;
+    progress_status?: ProgressStatus;
+  },
+): Promise<Milestone> {
+  return request<Milestone>(`/goals/${goalId}/milestones/${milestoneId}`, {
+    method: "PATCH",
+    body: JSON.stringify(fields),
+  });
+}
+
+export function deleteMilestone(goalId: number, milestoneId: number): Promise<void> {
+  return request<void>(`/goals/${goalId}/milestones/${milestoneId}`, {
+    method: "DELETE",
+  });
+}
+
+/** Must list every milestone of the goal — the backend rejects a partial order. */
+export function reorderMilestones(
+  goalId: number,
+  ids_in_order: number[],
+): Promise<Milestone[]> {
+  return request<Milestone[]>(`/goals/${goalId}/milestones/order`, {
+    method: "PUT",
+    body: JSON.stringify({ ids_in_order }),
+  });
+}
+
+/* ---------- quizzes ---------- */
+
+export type QuestionKind = "multiple_choice" | "open_ended";
+/** Mirrors the CHECK constraint on quizzes.status. */
+export type QuizStatus = "ready" | "in_progress" | "grading" | "graded";
+export type GradedBy = "key" | "hermes";
+export type UnderstandingSource = "quiz" | "session" | "manual";
+
+/**
+ * One thing a quiz was written from. A `chunk` is a pointer into our own
+ * materials; an `external` is a snapshot the backend cannot re-fetch, so it
+ * always carries its own `text`.
+ */
+export type QuizResource = {
+  kind: "chunk" | "external";
+  chunk_id?: number | null;
+  url?: string | null;
+  title?: string | null;
+  text?: string | null;
+};
+
+/**
+ * `correct_option`, `rubric` and `explanation` are null until the quiz is
+ * graded — the backend withholds them, so the UI cannot leak the key even by
+ * accident. Do not treat a null here as "this question has no answer".
+ */
+export type QuizQuestion = {
+  id: number;
+  order_index: number;
+  kind: QuestionKind;
+  prompt: string;
+  options: string[];
+  topic_id: number | null;
+  correct_option: number | null;
+  rubric: string | null;
+  explanation: string | null;
+  resources: QuizResource[];
+};
+
+export type QuizAnswer = {
+  question_id: number;
+  kind: QuestionKind | null;
+  answer: string | null;
+  selected_option: number | null;
+  score: number | null;
+  correct: boolean | null;
+  feedback: string | null;
+  graded_by: GradedBy | null;
+  graded_at: string | null;
+  grading_resources: QuizResource[];
+};
+
+export type Quiz = {
+  id: number;
+  session_id: number;
+  topic_id: number;
+  topic_name: string | null;
+  title: string;
+  status: QuizStatus;
+  /** Null until graded — and *stays* null when grading only partly succeeded. */
+  score: number | null;
+  created_at: string;
+  submitted_at: string | null;
+  graded_at: string | null;
+  grading_error: string | null;
+  resources: QuizResource[];
+  questions: QuizQuestion[];
+  answers: QuizAnswer[];
+};
+
+export type QuizSummary = {
+  id: number;
+  session_id: number;
+  topic_id: number;
+  topic_name: string | null;
+  title: string;
+  status: QuizStatus;
+  score: number | null;
+  question_count: number;
+  created_at: string;
+  graded_at: string | null;
+};
+
+export type QuizListPage = {
+  items: QuizSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+/** One recorded move of a topic's confidence score, with the reason behind it. */
+export type UnderstandingEvent = {
+  id: number;
+  topic_id: number;
+  source: UnderstandingSource;
+  quiz_id: number | null;
+  session_id: number | null;
+  previous_understanding: number;
+  understanding: number;
+  reason: string;
+  evidence: Record<string, unknown>;
+  created_at: string;
+};
+
+/** An unsaved answer. Omitting both fields is how a question stays skipped. */
+export type AnswerDraft = {
+  question_id: number;
+  answer?: string | null;
+  selected_option?: number | null;
+};
+
+export function listQuizzes(
+  params: { topic_id?: number; status?: QuizStatus; limit?: number; offset?: number } = {},
+): Promise<QuizListPage> {
+  const qs = new URLSearchParams();
+  if (params.topic_id) qs.set("topic_id", String(params.topic_id));
+  if (params.status) qs.set("status", params.status);
+  if (params.limit) qs.set("limit", String(params.limit));
+  if (params.offset) qs.set("offset", String(params.offset));
+  const query = qs.toString();
+  return request<QuizListPage>(`/quizzes${query ? `?${query}` : ""}`);
+}
+
+export function getQuiz(id: number): Promise<Quiz> {
+  return request<Quiz>(`/quizzes/${id}`);
+}
+
+/** Partial and repeatable — send only the questions whose answers changed. */
+export function saveQuizAnswers(id: number, answers: AnswerDraft[]): Promise<Quiz> {
+  return request<Quiz>(`/quizzes/${id}/answers`, {
+    method: "POST",
+    body: JSON.stringify({ answers }),
+  });
+}
+
+/**
+ * Grades the whole quiz. Resolves as soon as the multiple-choice half is
+ * settled; if the quiz has open-ended questions the reply carries
+ * `status: "grading"` and the caller has to poll `getQuiz`.
+ */
+export function submitQuiz(id: number): Promise<Quiz> {
+  return request<Quiz>(`/quizzes/${id}/submit`, { method: "POST" });
+}
+
+export function deleteQuiz(id: number): Promise<void> {
+  return request<void>(`/quizzes/${id}`, { method: "DELETE" });
+}
+
+export function listUnderstandingEvents(
+  topicId: number,
+  limit = 20,
+): Promise<UnderstandingEvent[]> {
+  return request<UnderstandingEvent[]>(`/quizzes/evidence/${topicId}?limit=${limit}`);
+}
+
+/** Live version of `dashboard.html`'s Last check-in card. */
+export type DashboardCheckIn = {
+  topic_id: number;
+  topic_name: string;
+  source: "quiz" | "session" | "manual";
+  previous_understanding: number;
+  understanding: number;
+  reason: string;
+  evidence: Record<string, unknown>;
+  created_at: string;
+};
+
+export type DashboardWeakTopic = {
+  topic_id: number;
+  name: string;
+  understanding: number;
+};
+
+/** One `app.ranking.TopicSignal`, ordered highest-priority first. */
+export type DashboardPriorityItem = {
+  topic_id: number;
+  name: string;
+  understanding: number;
+  band: "unknown" | "weak" | "fair" | "strong";
+  reason: string;
+  score: number;
+};
+
+export type Dashboard = {
+  cold_start: boolean;
+  check_in: DashboardCheckIn | null;
+  weak_topics: DashboardWeakTopic[];
+  priority_feed: DashboardPriorityItem[];
+};
+
+export function getDashboard(): Promise<Dashboard> {
+  return request<Dashboard>("/dashboard");
+}
+
 /* ---------- presentation helpers ---------- */
+
+/**
+ * Finished, but not cleanly: the backend leaves a message on a `ready` row
+ * when a stage degraded (tagging with the gateway down). Retrying is the fix,
+ * so this reads differently from both "Ready" and "Failed".
+ */
+export function isDegraded(upload: SourceFile): boolean {
+  return upload.ingest_status === "ready" && Boolean(upload.ingest_error);
+}
+
+/** Terminal states: the UI stops polling once an upload reaches one. */
+export function isIngesting(status: IngestStatus): boolean {
+  return status !== "ready" && status !== "failed";
+}
+
+export const INGEST_LABEL: Record<IngestStatus, string> = {
+  pending: "Queued",
+  extracting: "Reading",
+  tagging: "Tagging topics",
+  embedding: "Embedding",
+  ready: "Ready",
+  failed: "Failed",
+};
+
+/** The square file badge from topic-detail.html. */
+export const UPLOAD_GLYPH: Record<UploadType, string> = {
+  text: "TXT",
+  pdf: "PDF",
+  image: "IMG",
+};
+
+/**
+ * The score badge's word. -1 is deliberately not folded into "Weak": no signal
+ * yet is a different statement from a low score, and the Materials page is
+ * where that distinction has to stay visible.
+ */
+export function understandingBand(score: number): {
+  label: string;
+  tone: "unknown" | "weak" | "fair" | "strong";
+} {
+  if (score < 0) return { label: "No signal", tone: "unknown" };
+  if (score < 40) return { label: "Weak", tone: "weak" };
+  if (score < 70) return { label: "Fair", tone: "fair" };
+  return { label: "Strong", tone: "strong" };
+}
+
+/**
+ * The goal row's status pill. `paused` from the mockup is deliberately absent:
+ * SQLite's CHECK on `goals.status` only admits draft|committed|archived, so a
+ * paused pill would have no state to render from. A finished goal reads as Done
+ * even though it is still `committed` — percent is computed, not stored.
+ */
+export function goalPill(goal: GoalCard | GoalDetail): {
+  label: string;
+  tone: "active" | "done" | "archived";
+} {
+  if (goal.status === "archived") return { label: "Archived", tone: "archived" };
+  if (goal.percent >= 100) return { label: "Done", tone: "done" };
+  return { label: "Active", tone: "active" };
+}
+
+/** "Oct 3" — a due date is a day, and the year is noise on a study deadline. */
+export function formatDue(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** The line under a goal's title: course, deadline, and what is in focus. */
+export function goalSubtitle(goal: GoalCard): string[] {
+  const parts: string[] = [];
+  parts.push(goal.course_code ?? (goal.category === "career" ? "Career goal" : "Academic goal"));
+  const due = formatDue(goal.due_at);
+  if (due) parts.push(due);
+  if (goal.total_count) parts.push(`${goal.done_count} of ${goal.total_count} stages`);
+  return parts;
+}
+
+export const SOURCE_LABEL: Record<MilestoneSource, string> = {
+  materials: "From your materials",
+  research: "Researched",
+  user: "Added by you",
+};
+
+export function formatBytes(bytes: number | null): string | null {
+  if (!bytes) return null;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 /** The mockup's filter bar labels "cron" sessions as Findings. */
 export const TYPE_LABEL: Record<SessionType, string> = {
@@ -107,15 +802,71 @@ export const TYPE_GLYPH: Record<SessionType, string> = {
   agent_action: "⤴",
 };
 
+/* ---------- quiz presentation helpers ---------- */
+
+export const QUIZ_STATUS_LABEL: Record<QuizStatus, string> = {
+  ready: "Not started",
+  in_progress: "In progress",
+  grading: "Grading",
+  graded: "Graded",
+};
+
+/** Terminal state: the runner stops polling once a quiz leaves `grading`. */
+export function isGrading(status: QuizStatus): boolean {
+  return status === "grading";
+}
+
+export function isTakeable(status: QuizStatus): boolean {
+  return status === "ready" || status === "in_progress";
+}
+
+/**
+ * Graded, but with no score — the backend refuses to score a quiz whose
+ * open-ended half could not be graded, because the multiple-choice half is
+ * systematically easier and averaging it alone would quietly inflate the topic.
+ * This reads as its own state, not as a zero and not as a failure.
+ */
+export function isUnscored(quiz: { status: QuizStatus; score: number | null }): boolean {
+  return quiz.status === "graded" && quiz.score === null;
+}
+
+/** A question counts as answered once it has a selection or non-blank text. */
+export function isAnswered(answer: AnswerDraft | QuizAnswer | undefined): boolean {
+  if (!answer) return false;
+  if (answer.selected_option !== null && answer.selected_option !== undefined) return true;
+  return Boolean(answer.answer && answer.answer.trim());
+}
+
+/** "72" or "—": an unscored quiz has no number to show. */
+export function scoreDisplay(score: number | null): string {
+  return score === null ? "—" : String(score);
+}
+
+/** The arrow on an evidence row. Equal scores happen and should not read as a rise. */
+export function understandingDelta(event: UnderstandingEvent): {
+  arrow: string;
+  tone: "up" | "down" | "flat";
+  /** -1 is "no signal", not a score, so the first check-in has nothing to move from. */
+  first: boolean;
+} {
+  const first = event.previous_understanding < 0;
+  if (first) return { arrow: "→", tone: "flat", first };
+  const change = event.understanding - event.previous_understanding;
+  if (change > 0) return { arrow: "↑", tone: "up", first };
+  if (change < 0) return { arrow: "↓", tone: "down", first };
+  return { arrow: "→", tone: "flat", first };
+}
+
 export function messagesOf(session: Session): ChatMessage[] {
   return session.payload?.messages ?? [];
 }
 
 /**
- * The sessions table has no title column, so derive one: the opening user
- * message for a chat, otherwise the type label.
+ * A renamed session carries its own title; otherwise derive one from the
+ * opening user message, falling back to the type label.
  */
 export function titleOf(session: Session): string {
+  if (session.title) return session.title;
   const first = messagesOf(session).find((m) => m.role === "user")?.content;
   if (first) return first.length > 60 ? `${first.slice(0, 60)}…` : first;
   return `${TYPE_LABEL[session.type]} session`;

@@ -46,9 +46,19 @@ def _db():
     return lancedb.connect(str(settings.lancedb_path))
 
 
+def _table_names(db) -> set[str]:
+    """LanceDB 0.39 returns a paginated object from list_tables(); older
+    versions returned a plain list. Normalising here keeps the version
+    difference in one place. This store holds a single table, so the paging
+    token is irrelevant.
+    """
+    listing = db.list_tables()
+    return set(getattr(listing, "tables", listing))
+
+
 def _table():
     db = _db()
-    if TABLE_NAME not in db.table_names():
+    if TABLE_NAME not in _table_names(db):
         return db.create_table(TABLE_NAME, schema=_schema())
     return db.open_table(TABLE_NAME)
 
@@ -74,7 +84,7 @@ def search(
     vector: list[float], *, topic_id: int | None = None, limit: int = 5
 ) -> list[dict[str, Any]]:
     db = _db()
-    if TABLE_NAME not in db.table_names():
+    if TABLE_NAME not in _table_names(db):
         return []
 
     query = db.open_table(TABLE_NAME).search(vector).limit(limit)
@@ -95,7 +105,7 @@ def search(
 
 def delete_by_source_file(source_file_id: int) -> None:
     db = _db()
-    if TABLE_NAME in db.table_names():
+    if TABLE_NAME in _table_names(db):
         db.open_table(TABLE_NAME).delete(f"source_file_id = {int(source_file_id)}")
 
 
@@ -103,7 +113,7 @@ def delete_by_chunk_ids(chunk_ids: list[int]) -> None:
     if not chunk_ids:
         return
     db = _db()
-    if TABLE_NAME in db.table_names():
+    if TABLE_NAME in _table_names(db):
         ids = ",".join(str(int(i)) for i in chunk_ids)
         db.open_table(TABLE_NAME).delete(f"chunk_id IN ({ids})")
 
@@ -111,5 +121,5 @@ def delete_by_chunk_ids(chunk_ids: list[int]) -> None:
 def drop() -> None:
     """Used by tests, and the first half of a rebuild-from-SQLite repair."""
     db = _db()
-    if TABLE_NAME in db.table_names():
+    if TABLE_NAME in _table_names(db):
         db.drop_table(TABLE_NAME)

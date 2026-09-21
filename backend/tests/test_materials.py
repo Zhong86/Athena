@@ -12,6 +12,8 @@ genuinely has to reach the chunk containing that word.
 import json
 import math
 import os
+import re
+import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -28,24 +30,32 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from agent import embeddings, hermes  # noqa: E402
 from app.config import get_settings  # noqa: E402
-from app.db import init_db  # noqa: E402
+from app.db import connection, init_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.materials import repository as repo  # noqa: E402
 from app.materials import search as search_module  # noqa: E402
 from app.materials import vectors as vector_store  # noqa: E402
 
 VOCAB = ["entropy", "enthalpy", "titration", "carnot", "disorder", "quantum"]
 
+# Pulls "[3] <whole excerpt, newlines and all>" out of the tagger's prompt.
+EXCERPT_RE = re.compile(r"\[(\d+)\] (.*?)(?=\n\n\[\d+\] |\Z)", re.S)
+
+# Each is deliberately over the chunker's 1000-char ceiling so that a file
+# containing both produces separate chunks. Under the MVP's one-chunk-one-topic
+# rule, two topics cannot come from a single chunk -- so a test that wants a
+# file spanning two topics has to give the chunker enough text to split.
 ENTROPY_TEXT = (
     "Entropy is the measure of disorder in a thermodynamic system. "
     "The second law states that the entropy of an isolated system never "
     "decreases over time, which is why reactions run the direction they do. "
-    "This idea of disorder underpins most of the thermo unit."
-)
+    "This idea of disorder underpins most of the thermo unit. "
+) * 5
 TITRATION_TEXT = (
     "Titration is a technique for determining the concentration of an unknown "
     "solution. A titration proceeds by adding a reagent of known concentration "
-    "until the equivalence point is reached and the indicator changes colour."
-)
+    "until the equivalence point is reached and the indicator changes colour. "
+) * 5
 
 
 def _fake_vector(text: str) -> list[float]:
@@ -66,14 +76,17 @@ def stubs():
     async def fake_complete(prompt, *, system=None):
         # Route each excerpt by content, the way a real tagger would, so the
         # test exercises both the existing-topic and new-topic paths.
+        # Matched as whole blocks rather than per line: chunks contain newlines,
+        # and a line-based stub would only ever see each chunk's first line.
         assignments = []
-        for line in prompt.splitlines():
-            if not line.startswith("["):
-                continue
-            index = int(line[1 : line.index("]")])
-            name = "Titration" if "titration" in line.lower() else "Entropy"
+        for index, excerpt in EXCERPT_RE.findall(prompt):
+            name = "Titration" if "titration" in excerpt.lower() else "Entropy"
             assignments.append(
-                {"index": index, "topic_name": name, "topic_description": f"{name} notes"}
+                {
+                    "index": int(index),
+                    "topic_name": name,
+                    "topic_description": f"{name} notes",
+                }
             )
         return json.dumps({"assignments": assignments})
 
@@ -172,6 +185,43 @@ class TestIngest:
         source_file = _upload_text(client, "retry check.txt", ENTROPY_TEXT)
         resp = client.post(f"/materials/uploads/{source_file['id']}/retry")
         assert resp.status_code == 409
+
+
+class TestDegradedTagging:
+    """Hermes being down must not lose the upload, but it must not pass as a
+    clean success either -- otherwise "ready with no topics" is indistinguishable
+    from "ready" in the UI."""
+
+    def test_unreachable_hermes_leaves_a_note_and_allows_a_retry(self, client):
+        working = hermes.complete
+
+        async def down(prompt, *, system=None):
+            raise hermes.HermesError("gateway unreachable")
+
+        hermes.complete = down
+        try:
+            source_file = _upload_text(client, "gateway down.txt", ENTROPY_TEXT)
+        finally:
+            hermes.complete = working
+
+        # Still ingested: the chunks exist and are embedded.
+        assert source_file["ingest_status"] == "ready"
+        assert source_file["chunk_count"] >= 1
+        # ...but the row says why it is incomplete.
+        assert "untagged" in source_file["ingest_error"]
+
+        file_id = source_file["id"]
+
+        # A degraded `ready` row is retryable even though a clean one is not.
+        assert client.post(f"/materials/uploads/{file_id}/retry").status_code == 202
+
+        # The retry ran with a working gateway, so the note is gone and the
+        # chunks are tagged this time.
+        after = client.get(f"/materials/uploads/{file_id}").json()
+        assert after["ingest_status"] == "ready"
+        assert after["ingest_error"] is None
+
+        client.delete(f"/materials/uploads/{file_id}")
 
 
 class TestTopicPage:
@@ -273,3 +323,126 @@ class TestDelete:
 
     def test_deleting_a_missing_upload_gives_404(self, client):
         assert client.delete("/materials/uploads/99999").status_code == 404
+
+    def test_deleting_a_drive_row_drops_the_index_not_the_original(self, client):
+        """A Drive row has no `stored_path`, so delete must not go looking for
+        bytes on disk -- the original is in the user's Drive and stays there."""
+        with connection() as conn:
+            row = repo.create_source_file(
+                conn,
+                filename="lecture-7.pdf",
+                upload_type="pdf",
+                origin="drive",
+                drive_file_id="1AbCdEfDisposable",
+                drive_url="https://drive.google.com/file/d/1AbCdEfDisposable/view",
+            )
+
+        assert client.delete(f"/materials/uploads/{row['id']}").status_code == 204
+        assert client.get(f"/materials/uploads/{row['id']}").status_code == 404
+
+
+class TestDriveOrigin:
+    """Schema and read path only -- the OAuth flow and the `fetching` stage
+    that would populate these rows for real are not built yet."""
+
+    def test_uploads_default_to_local_origin(self, client):
+        source_file = _upload_text(client, "origin default.txt", ENTROPY_TEXT)
+        assert source_file["origin"] == "local"
+        assert source_file["drive_url"] is None
+
+    def test_a_drive_row_is_listed_with_its_link(self, client):
+        url = "https://drive.google.com/file/d/1AbCdEfGhIjK/view"
+        with connection() as conn:
+            row = repo.create_source_file(
+                conn,
+                filename="thermo lecture 4.pdf",
+                upload_type="pdf",
+                byte_size=184_320,
+                origin="drive",
+                drive_file_id="1AbCdEfGhIjK",
+                drive_url=url,
+                drive_modified_at="2026-09-18T09:14:00Z",
+            )
+
+        assert row["stored_path"] is None
+
+        listed = client.get("/materials/uploads").json()
+        drive_row = next(f for f in listed if f["id"] == row["id"])
+        assert drive_row["origin"] == "drive"
+        assert drive_row["drive_url"] == url
+        assert drive_row["byte_size"] == 184_320
+        # Drive files run the same pipeline as local ones, so they carry the
+        # same status vocabulary rather than a special-cased one.
+        assert drive_row["ingest_status"] == "pending"
+
+    def test_the_same_drive_file_cannot_be_added_twice(self, client):
+        with connection() as conn:
+            repo.create_source_file(
+                conn,
+                filename="once.pdf",
+                upload_type="pdf",
+                origin="drive",
+                drive_file_id="1OnlyOnce",
+            )
+
+        with connection() as conn:
+            assert repo.find_by_drive_file_id(conn, "1OnlyOnce") is not None
+            with pytest.raises(sqlite3.IntegrityError):
+                repo.create_source_file(
+                    conn,
+                    filename="again.pdf",
+                    upload_type="pdf",
+                    origin="drive",
+                    drive_file_id="1OnlyOnce",
+                )
+
+    def test_local_rows_do_not_collide_on_a_null_drive_id(self, client):
+        """The unique index is partial: every local upload leaves drive_file_id
+        NULL, and two of those must not be treated as duplicates."""
+        first = _upload_text(client, "null one.txt", ENTROPY_TEXT)
+        second = _upload_text(client, "null two.txt", ENTROPY_TEXT)
+        assert first["id"] != second["id"]
+
+    def test_the_topic_page_carries_the_drive_link_too(self, client):
+        """The topic page lists the same files as the Sources list, so a Drive
+        file has to be openable from both -- one row, one behaviour."""
+        url = "https://drive.google.com/document/d/1TopicPageDrive/edit"
+        topic_id = next(
+            t["id"] for t in client.get("/materials/topics").json()
+            if t["name"] == "Entropy"
+        )
+
+        with connection() as conn:
+            row = repo.create_source_file(
+                conn,
+                filename="shared lecture.pdf",
+                upload_type="pdf",
+                origin="drive",
+                drive_file_id="1TopicPageDrive",
+                drive_url=url,
+            )
+            conn.execute(
+                "INSERT INTO chunks (source_file_id, topic_id, text, order_index)"
+                " VALUES (?, ?, ?, 0)",
+                (row["id"], topic_id, "Entropy and disorder, from Drive."),
+            )
+
+        sources = client.get(f"/materials/topics/{topic_id}").json()["sources"]
+        drive_source = next(
+            s for s in sources if s["source_file_id"] == row["id"]
+        )
+        assert drive_source["origin"] == "drive"
+        assert drive_source["drive_url"] == url
+
+        # A local source in the same list must not claim a link it has no
+        # business having.
+        local = [s for s in sources if s["source_file_id"] != row["id"]]
+        assert local, "expected the topic to have local sources too"
+        assert all(s["origin"] == "local" and s["drive_url"] is None for s in local)
+
+    def test_an_unknown_origin_is_rejected(self, client):
+        with connection() as conn:
+            with pytest.raises(sqlite3.IntegrityError):
+                repo.create_source_file(
+                    conn, filename="x.pdf", upload_type="pdf", origin="dropbox"
+                )

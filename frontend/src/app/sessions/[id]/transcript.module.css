@@ -1,39 +1,70 @@
+/* A chat fills its viewport: header at the top, scrollback taking whatever is
+   left, composer pinned at the bottom. The shell's own bottom padding would
+   push the composer off-screen, so .page overrides it. */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--m-top-h));
+  padding-bottom: 24px;
+}
+
+@media (min-width: 768px) {
+  .page {
+    height: 100dvh;
+  }
+}
+
+.page > :global(.greeting) {
+  margin-bottom: 20px;
+}
+
+/* No card: the scrollback is the page. Only the composer is chrome. */
 .transcript {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  min-height: 320px;
-  max-height: 60vh;
+  gap: 20px;
+  flex: 1;
+  /* without this a flex item refuses to shrink past its content height */
+  min-height: 0;
   overflow-y: auto;
-  margin-bottom: 16px;
+  padding-bottom: 24px;
+  margin-bottom: 8px;
+}
+
+.empty {
+  margin: auto 0;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.empty strong {
+  display: block;
+  color: var(--ink);
+  margin-bottom: 4px;
 }
 
 .bubble {
-  max-width: 78%;
-  padding: 11px 15px;
-  border-radius: 14px;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
+/* The assistant speaks as the page itself — no bubble, full measure. */
 .assistant {
-  background: var(--indigo-soft);
   color: var(--ink);
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
+  align-self: stretch;
 }
 
 .user {
-  background: var(--ink);
-  color: #fff;
+  max-width: 78%;
+  padding: 11px 15px;
+  border-radius: 14px;
+  background: var(--indigo-soft);
+  color: var(--ink);
   align-self: flex-end;
-  border-bottom-right-radius: 4px;
 }
 
 .thinking {
@@ -49,8 +80,8 @@
 .composer input {
   flex: 1;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 14px;
+  padding: 14px 16px;
   font-family: inherit;
   font-size: 14px;
   background: var(--surface);
@@ -60,18 +91,4 @@
 .composer input:focus {
   outline: none;
   border-color: var(--indigo);
-}
-
-.backRow {
-  margin-bottom: 20px;
-}
-
-.backLink {
-  font-size: 13.5px;
-  color: var(--ink-soft);
-  text-decoration: none;
-}
-
-.backLink:hover {
-  color: var(--indigo);
 }

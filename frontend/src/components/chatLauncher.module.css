@@ -4,12 +4,12 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 58px;
-  height: 58px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
   background: var(--indigo);
   border: none;
-  box-shadow: 0 6px 20px rgba(91, 110, 245, 0.35);
+  box-shadow: 0 8px 26px rgba(91, 110, 245, 0.35);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -21,20 +21,20 @@
 
 .fab:hover {
   transform: scale(1.05);
-  box-shadow: 0 8px 24px rgba(91, 110, 245, 0.45);
+  box-shadow: 0 10px 30px rgba(91, 110, 245, 0.45);
 }
 
-.fabGlyph {
-  font-family: var(--font-fraunces), serif;
-  font-size: 22px;
-  font-weight: 600;
-  color: #fff;
-  line-height: 1;
+/* The mark is cream linework, so the indigo disc behind it is what makes it
+   legible — it is never placed on a light surface unchipped. */
+.fabMark {
+  width: 42px;
+  height: auto;
 }
 
 .panel {
   position: fixed;
-  bottom: 96px;
+  /* clears the FAB (24px inset + 76px disc) plus a gap */
+  bottom: 114px;
   right: 24px;
   width: 340px;
   max-width: calc(100vw - 32px);
@@ -166,10 +166,12 @@
   cursor: not-allowed;
 }
 
+/* The mobile nav is a drawer now, not a bottom bar, so the bottom edge is the
+   FAB's again. */
 @media (max-width: 420px) {
   .panel {
     right: 16px;
-    bottom: 90px;
+    bottom: 104px;
     width: calc(100vw - 32px);
   }
 

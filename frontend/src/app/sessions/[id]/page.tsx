@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Nav } from "@/components/Nav";
+import { Nav, type DrillNav } from "@/components/Nav";
 import { When } from "@/components/When";
 import {
   ApiError,
   getSession,
+  listSessions,
   messagesOf,
   titleOf,
   TYPE_LABEL,
@@ -49,18 +50,36 @@ export default async function SessionDetailPage(props: {
 
   const messages = messagesOf(session);
 
+  // Desktop D2: the sibling sessions take over the rail. Failing to load them
+  // only costs the sub-list — the back link and the transcript still work.
+  let siblings: Session[] = [];
+  try {
+    // Chats only, matching /sessions: quizzes and agent runs are their own
+    // sections now and are not siblings of this transcript.
+    siblings = (await listSessions({ type: "chat", limit: 12 })).items;
+  } catch {
+    siblings = [session];
+  }
+
+  // Only a live chat claims the full viewport; the read-only branch is a short
+  // notice and looks wrong stretched over it.
+  const isChat = session.type === "chat";
+
+  const drill: DrillNav = {
+    back: { href: "/sessions", label: "Sessions" },
+    title: "CHATS",
+    items: siblings.map((s) => ({
+      href: `/sessions/${s.id}`,
+      label: titleOf(s),
+      active: s.id === session.id,
+    })),
+  };
+
   return (
     <>
-      {/* Desktop D2 / mobile M1: a back link replaces the nav on drill-in. */}
-      <Nav />
+      <Nav active="Sessions" drill={drill} />
 
-      <div className="shell">
-        <div className={styles.backRow}>
-          <Link href="/sessions" className={styles.backLink}>
-            ← Sessions
-          </Link>
-        </div>
-
+      <div className={isChat ? `shell ${styles.page}` : "shell"}>
         <div className="greeting">
           <h1>{titleOf(session)}</h1>
           <p>
@@ -72,7 +91,7 @@ export default async function SessionDetailPage(props: {
           </p>
         </div>
 
-        {session.type === "chat" ? (
+        {isChat ? (
           <Transcript sessionId={session.id} initialMessages={messages} />
         ) : (
           <div className="empty-state">

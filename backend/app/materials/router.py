@@ -121,11 +121,11 @@ def retry_upload(file_id: int, tasks: BackgroundTasks) -> SourceFile:
         source_file = repo.get_source_file(conn, file_id)
         if source_file is None:
             raise HTTPException(404, f"source file {file_id} not found")
-        if source_file["ingest_status"] not in repo.RESTARTABLE:
+        if not repo.is_restartable(source_file):
             raise HTTPException(
                 409,
-                f"source file {file_id} is {source_file['ingest_status']}, "
-                "not failed -- nothing to retry",
+                f"source file {file_id} is {source_file['ingest_status']} "
+                "with nothing outstanding -- nothing to retry",
             )
         repo.set_status(conn, file_id, "pending")
         source_file = repo.get_source_file(conn, file_id)
