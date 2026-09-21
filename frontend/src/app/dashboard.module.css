@@ -1,0 +1,156 @@
+/* Ported from templates/dashboard.html. Shared chrome lives in globals.css. */
+
+.link {
+  font-size: 13px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1px;
+}
+
+.link:hover {
+  color: var(--indigo);
+  border-color: var(--indigo);
+}
+
+/* ===== Last check-in ===== */
+.checkinCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.checkinCard h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.checkinCard p {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ===== Weak topic alert ===== */
+.weakAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--indigo-soft);
+  border-radius: 12px;
+}
+
+.weakAlertIcon {
+  color: var(--indigo);
+  font-size: 12px;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.weakAlertTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.weakAlertBody {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.weakAlertBody strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ===== Priority feed ===== */
+.feedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.feedItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.urgent {
+  background: var(--coral);
+}
+
+.soon {
+  background: var(--amber);
+}
+
+.later {
+  background: var(--sage);
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 14.5px;
+  font-weight: 500;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reason {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.tagWeak {
+  color: var(--indigo);
+  font-weight: 600;
+}
+
+.when {
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.whenUrgent {
+  color: var(--coral);
+  font-weight: 500;
+}
+
+@media (max-width: 560px) {
+  .checkinCard {
+    padding: 20px;
+  }
+
+  .reason {
+    white-space: normal;
+  }
+
+  .feedItem {
+    align-items: flex-start;
+  }
+}
