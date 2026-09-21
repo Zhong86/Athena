@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New goal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{ color:inherit; }
+
+  .shell{
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 24px 100px;
+  }
+
+  /* ===== Navbar (shared, minimal — this is a focused flow) ===== */
+  .navbar{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-inner{
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .wordmark{
+    font-family:'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    flex-shrink: 0;
+  }
+
+  .exit-link{
+    display:flex;
+    align-items:center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+  }
+
+  .exit-link:hover{ color: var(--ink); background: var(--surface); }
+
+  /* ===== Progress stepper ===== */
+  .stepper{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin: 32px 0 40px;
+  }
+
+  .stepper .step{
+    flex: 1;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+
+  .stepper .step-num{
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    color: var(--ink-soft);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .stepper .step.done .step-num{
+    background: var(--sage-soft);
+    border-color: var(--sage);
+    color: var(--sage);
+  }
+
+  .stepper .step.current .step-num{
+    background: var(--indigo);
+    border-color: var(--indigo);
+    color: #fff;
+  }
+
+  .stepper .step-label{
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  .stepper .step.current .step-label{ color: var(--ink); }
+
+  .stepper .step-line{
+    flex: 1;
+    height: 1.5px;
+    background: var(--line);
+  }
+
+  .stepper .step.done + .step-line{ background: var(--sage); }
+
+  @media (max-width: 560px){
+    .stepper .step-label{ display:none; }
+  }
+
+  /* ===== Stage sections ===== */
+  .stage{
+    margin-bottom: 40px;
+  }
+
+  .stage-head h1{
+    font-family:'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(24px, 3.4vw, 30px);
+    line-height: 1.3;
+    margin: 0 0 8px;
+  }
+
+  .stage-head p{
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    margin: 0;
+    line-height: 1.5;
+    max-width: 54ch;
+  }
+
+  /* ===== Stage 1: input + clarify ===== */
+  .goal-input-card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px;
+    margin-top: 24px;
+  }
+
+  .goal-input-card textarea{
+    width: 100%;
+    border: none;
+    resize: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: transparent;
+    min-height: 64px;
+  }
+
+  .goal-input-card textarea:focus{ outline: none; }
+  .goal-input-card textarea::placeholder{ color: #B4B2A9; }
+
+  .goal-input-examples{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .example-chip{
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 7px 13px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .example-chip:hover{ border-color: var(--indigo); color: var(--indigo); }
+
+  /* Clarifying exchange */
+  .clarify-thread{
+    margin-top: 28px;
+    display:flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .clarify-bubble{
+    max-width: 88%;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .clarify-bubble.agent{
+    background: var(--indigo-soft);
+    color: var(--ink);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .clarify-bubble.user{
+    background: var(--ink);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+
+  .clarify-options{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+    align-self: flex-start;
+  }
+
+  .clarify-option{
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--indigo);
+    background: var(--surface);
+    border: 1px solid var(--indigo-soft);
+    padding: 9px 15px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .clarify-option:hover{ background: var(--indigo-soft); }
+
+  /* ===== Stage 2: decomposition summary ===== */
+  .derive-alert{
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+    padding: 16px 18px;
+    background: var(--sage-soft);
+    border-radius: 12px;
+    margin-top: 22px;
+  }
+
+  .derive-alert-icon{
+    color: var(--sage);
+    font-size: 12px;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .derive-alert-title{
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+
+  .derive-alert-body{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .derive-alert-body strong{ color: var(--ink); font-weight: 600; }
+
+  .personalization-note{
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--coral-soft);
+    border-radius: 12px;
+    margin-top: 12px;
+  }
+
+  .personalization-note-icon{
+    color: var(--coral);
+    font-size: 12px;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .personalization-note p{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .personalization-note strong{ color: var(--ink); font-weight: 600; }
+
+  .research-tool-tag{
+    display:inline-flex;
+    align-items:center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--coral);
+    background: var(--surface);
+    border: 1px solid var(--coral-soft);
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-top: 8px;
+  }
+
+  /* ===== Stage 3: approval — mode toggle ===== */
+  .approval-mode-toggle{
+    display:inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 3px;
+    margin: 22px 0 24px;
+  }
+
+  .approval-mode-toggle button{
+    font-family:'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .approval-mode-toggle button.active{
+    background: var(--indigo-soft);
+    color: var(--indigo);
+  }
+
+  /* --- Review-all mode: list with inline edit/reorder --- */
+  .milestone-review-list{
+    list-style:none;
+    margin: 0;
+    padding: 0;
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .milestone-review-item{
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 16px 16px 12px;
+  }
+
+  .drag-handle{
+    color: #B4B2A9;
+    font-size: 15px;
+    line-height: 1;
+    padding: 4px 2px;
+    cursor: grab;
+    flex-shrink: 0;
+    margin-top: 2px;
+    user-select: none;
+  }
+
+  .milestone-review-num{
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1.5px solid var(--line);
+    color: var(--ink-soft);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .milestone-review-body{ flex: 1; min-width: 0; }
+
+  .milestone-review-title-row{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  .milestone-review-title{
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0;
+    background: transparent;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    padding: 2px 0;
+    width: 100%;
+  }
+
+  .milestone-review-title:focus{
+    outline: none;
+    border-bottom: 1.5px solid var(--indigo);
+  }
+
+  .tag-weak{
+    color: var(--indigo);
+    font-weight: 600;
+  }
+
+  .milestone-review-reason{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .milestone-review-actions{
+    display:flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .icon-btn{
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 14px;
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .icon-btn:hover{ background: var(--bg); color: var(--ink); }
+  .icon-btn.danger:hover{ background: var(--coral-soft); color: var(--coral); }
+
+  .add-milestone-row{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 12px 4px;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .add-milestone-row:hover{ color: var(--indigo); }
+
+  .add-milestone-row .plus-circle{
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px dashed var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .add-milestone-row:hover .plus-circle{ border-color: var(--indigo); }
+
+  /* --- Step-through mode: one milestone at a time --- */
+  .stepthrough-card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 26px;
+  }
+
+  .stepthrough-progress{
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--indigo);
+    margin: 0 0 14px;
+  }
+
+  .stepthrough-title{
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+
+  .stepthrough-reason{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0 0 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stepthrough-detail-row{
+    display:flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stepthrough-detail-row:last-of-type{ border-bottom: none; }
+
+  .stepthrough-detail-row .label{ color: var(--ink-soft); }
+  .stepthrough-detail-row .value{ font-weight: 500; }
+
+  .stepthrough-actions{
+    display:flex;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .stepthrough-dots{
+    display:flex;
+    justify-content:center;
+    gap: 6px;
+    margin-top: 18px;
+  }
+
+  .stepthrough-dots .dot{
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line);
+  }
+
+  .stepthrough-dots .dot.done{ background: var(--sage); }
+  .stepthrough-dots .dot.current{ background: var(--indigo); width: 16px; border-radius: 999px; }
+
+  /* ===== Buttons (shared) ===== */
+  .btn{
+    font-family:'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+    text-decoration: none;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .btn:hover{ background: #4759DE; }
+
+  .btn.ghost{
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+  }
+
+  .btn.ghost:hover{ background: var(--surface); color: var(--ink); border-color: var(--ink-soft); }
+
+  .btn.full{ width: 100%; }
+
+  .btn:focus-visible, a:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  .stage-footer-actions{
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    margin-top: 28px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .btn{ transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <div class="wordmark">Αθηνα</div>
+    <a href="goal-list.html" class="exit-link">Save and exit</a>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <!-- Progress stepper -->
+  <div class="stepper">
+    <div class="step done">
+      <div class="step-num">✓</div>
+      <span class="step-label">Tell Hermes</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step done">
+      <div class="step-num">✓</div>
+      <span class="step-label">Roadmap draft</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step current">
+      <div class="step-num">3</div>
+      <span class="step-label">Approve milestones</span>
+    </div>
+  </div>
+
+  <!-- ================= STAGE 1 (reference — collapsed summary of what already happened) ================= -->
+  <div class="stage" style="opacity:.5;">
+    <div class="stage-head">
+      <p style="font-size:12.5px; font-weight:600; color:var(--ink-soft); text-transform:none; margin-bottom:6px;">Step 1 · Completed</p>
+    </div>
+    <div class="clarify-thread">
+      <div class="clarify-bubble user">Want to pass the Thermo midterm</div>
+      <div class="clarify-bubble agent">Got it — CHEM 2010, due Oct 3. Should I focus only on topics from your uploaded lecture notes, or include the full syllabus even where you haven't uploaded materials yet?</div>
+      <div class="clarify-bubble user">Just what's in my materials for now</div>
+    </div>
+  </div>
+
+  <!-- ================= STAGE 2 (reference — collapsed summary) ================= -->
+  <div class="stage" style="opacity:.5;">
+    <p style="font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;">Step 2 · Completed</p>
+    <div class="derive-alert">
+      <span class="derive-alert-icon">◆</span>
+      <div class="derive-alert-copy">
+        <p class="derive-alert-title">Decomposed into 7 milestones from your Materials</p>
+        <p class="derive-alert-body">Hermes split the goal using what's already in Materials for CHEM 2010, then reordered against your Calendar deadlines and check-in history.</p>
+      </div>
+    </div>
+    <div class="personalization-note">
+      <span class="personalization-note-icon">◆</span>
+      <p><strong>SQL joins</strong> doesn't belong to this course — Hermes pulled it in because it's a standing weak topic from your other check-ins with a related deadline nearby.</p>
+    </div>
+  </div>
+
+  <!-- ================= STAGE 3: APPROVAL (current stage) ================= -->
+  <div class="stage">
+    <div class="stage-head">
+      <h1>Review the roadmap</h1>
+      <p>Reorder, edit, or remove any milestone before Hermes locks this in. You can always adjust it later from the goal page.</p>
+    </div>
+
+    <div class="approval-mode-toggle">
+      <button class="active" id="modeReviewAllBtn" onclick="setMode('all')">Review all at once</button>
+      <button id="modeStepBtn" onclick="setMode('step')">Approve one by one</button>
+    </div>
+
+    <!-- ===== MODE A: Review all, inline edit/reorder ===== -->
+    <div id="reviewAllPanel">
+      <ul class="milestone-review-list">
+        <li class="milestone-review-item">
+          <span class="drag-handle">⠿</span>
+          <div class="milestone-review-num">1</div>
+          <div class="milestone-review-body">
+            <div class="milestone-review-title-row">
+              <input class="milestone-review-title" value="Review thermodynamics fundamentals" readonly>
+            </div>
+            <p class="milestone-review-reason">Already strong from earlier check-ins — kept short as a refresher.</p>
+          </div>
+          <div class="milestone-review-actions">
+            <button class="icon-btn" aria-label="Edit milestone" title="Edit">✎</button>
+            <button class="icon-btn danger" aria-label="Remove milestone" title="Remove">✕</button>
+          </div>
+        </li>
+
+        <li class="milestone-review-item">
+          <span class="drag-handle">⠿</span>
+          <div class="milestone-review-num">2</div>
+          <div class="milestone-review-body">
+            <div class="milestone-review-title-row">
+              <input class="milestone-review-title" value="Practice set: heat transfer" readonly>
+            </div>
+            <p class="milestone-review-reason">Builds directly on the fundamentals review above.</p>
+          </div>
+          <div class="milestone-review-actions">
+            <button class="icon-btn" aria-label="Edit milestone" title="Edit">✎</button>
+            <button class="icon-btn danger" aria-label="Remove milestone" title="Remove">✕</button>
+          </div>
+        </li>
+
+        <li class="milestone-review-item">
+          <span class="drag-handle">⠿</span>
+          <div class="milestone-review-num">3</div>
+          <div class="milestone-review-body">
+            <div class="milestone-review-title-row">
+              <input class="milestone-review-title" value="Rebuild entropy from the ground up" readonly>
+            </div>
+            <p class="milestone-review-reason"><span class="tag-weak">Entropy</span> flagged weak in 3 of your last 4 check-ins · moved up to feed the titration lab due in 3 days</p>
+          </div>
+          <div class="milestone-review-actions">
+            <button class="icon-btn" aria-label="Edit milestone" title="Edit">✎</button>
+            <button class="icon-btn danger" aria-label="Remove milestone" title="Remove">✕</button>
+          </div>
+        </li>
+
+        <li class="milestone-review-item">
+          <span class="drag-handle">⠿</span>
+          <div class="milestone-review-num">4</div>
+          <div class="milestone-review-body">
+            <div class="milestone-review-title-row">
+              <input class="milestone-review-title" value="SQL joins practice set" readonly>
+            </div>
+            <p class="milestone-review-reason">Pulled forward from next week — <span class="tag-weak">SQL joins</span> has been a recurring weak spot since your first check-in.</p>
+          </div>
+          <div class="milestone-review-actions">
+            <button class="icon-btn" aria-label="Edit milestone" title="Edit">✎</button>
+            <button class="icon-btn danger" aria-label="Remove milestone" title="Remove">✕</button>
+          </div>
+        </li>
+
+        <li class="milestone-review-item">
+          <span class="drag-handle">⠿</span>
+          <div class="milestone-review-num">5</div>
+          <div class="milestone-review-body">
+            <div class="milestone-review-title-row">
+              <input class="milestone-review-title" value="Second-law problem sets" readonly>
+            </div>
+            <p class="milestone-review-reason">Unlocks once entropy is confirmed solid in your next check-in.</p>
+          </div>
+          <div class="milestone-review-actions">
+            <button class="icon-btn" aria-label="Edit milestone" title="Edit">✎</button>
+            <button class="icon-btn danger" aria-label="Remove milestone" title="Remove">✕</button>
+          </div>
+        </li>
+
+        <li class="milestone-review-item">
+          <span class="drag-handle">⠿</span>
+          <div class="milestone-review-num">6</div>
+          <div class="milestone-review-body">
+            <div class="milestone-review-title-row">
+              <input class="milestone-review-title" value="Full practice midterm" readonly>
+            </div>
+            <p class="milestone-review-reason">Timed for Sep 29, four days before the real exam.</p>
+          </div>
+          <div class="milestone-review-actions">
+            <button class="icon-btn" aria-label="Edit milestone" title="Edit">✎</button>
+            <button class="icon-btn danger" aria-label="Remove milestone" title="Remove">✕</button>
+          </div>
+        </li>
+
+        <li class="milestone-review-item">
+          <span class="drag-handle">⠿</span>
+          <div class="milestone-review-num">7</div>
+          <div class="milestone-review-body">
+            <div class="milestone-review-title-row">
+              <input class="milestone-review-title" value="Final review pass" readonly>
+            </div>
+            <p class="milestone-review-reason">Built from whatever still trips you up on the practice midterm.</p>
+          </div>
+          <div class="milestone-review-actions">
+            <button class="icon-btn" aria-label="Edit milestone" title="Edit">✎</button>
+            <button class="icon-btn danger" aria-label="Remove milestone" title="Remove">✕</button>
+          </div>
+        </li>
+      </ul>
+
+      <div class="add-milestone-row">
+        <span class="plus-circle">+</span>
+        <span>Add a milestone</span>
+      </div>
+    </div>
+
+    <!-- ===== MODE B: Step through, one milestone at a time ===== -->
+    <div id="stepThroughPanel" style="display:none;">
+      <div class="stepthrough-card">
+        <p class="stepthrough-progress">Milestone 3 of 7</p>
+        <h3 class="stepthrough-title">Rebuild entropy from the ground up</h3>
+        <p class="stepthrough-reason"><span class="tag-weak">Entropy</span> flagged weak in 3 of your last 4 check-ins — Hermes moved this ahead of schedule because it directly feeds the titration lab due in 3 days.</p>
+
+        <div class="stepthrough-detail-row">
+          <span class="label">Estimated time</span>
+          <span class="value">45–60 min</span>
+        </div>
+        <div class="stepthrough-detail-row">
+          <span class="label">Source materials</span>
+          <span class="value">3 chunks tagged "Entropy"</span>
+        </div>
+        <div class="stepthrough-detail-row">
+          <span class="label">Unlocks after</span>
+          <span class="value">Practice set: heat transfer</span>
+        </div>
+
+        <div class="stepthrough-actions">
+          <button class="btn ghost">Edit</button>
+          <button class="btn ghost">Skip for now</button>
+          <button class="btn full">Approve and continue</button>
+        </div>
+
+        <div class="stepthrough-dots">
+          <span class="dot done"></span>
+          <span class="dot done"></span>
+          <span class="dot current"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-footer-actions">
+      <a href="goal-list.html" class="btn ghost">Back</a>
+      <a href="goal-detail.html" class="btn">Confirm roadmap</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function setMode(mode){
+    const allBtn = document.getElementById('modeReviewAllBtn');
+    const stepBtn = document.getElementById('modeStepBtn');
+    const allPanel = document.getElementById('reviewAllPanel');
+    const stepPanel = document.getElementById('stepThroughPanel');
+
+    if(mode === 'all'){
+      allBtn.classList.add('active');
+      stepBtn.classList.remove('active');
+      allPanel.style.display = '';
+      stepPanel.style.display = 'none';
+    } else {
+      stepBtn.classList.add('active');
+      allBtn.classList.remove('active');
+      stepPanel.style.display = '';
+      allPanel.style.display = 'none';
+    }
+  }
+</script>
+
+</body>
+</html>

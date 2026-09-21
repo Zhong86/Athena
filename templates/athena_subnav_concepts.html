@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Αθηνα — Sub-navigation Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+
+  .meta-header{ max-width:1180px; margin:0 auto; padding:36px 24px 8px; }
+  .meta-header h1{ font-family:'Fraunces',serif; font-weight:500; font-size:clamp(22px,3.2vw,30px); margin:0 0 6px; }
+  .meta-header p{ color:var(--ink-soft); font-size:14px; margin:0; max-width:70ch; line-height:1.5; }
+
+  .controls{ max-width:1180px; margin:20px auto 0; padding:0 24px; display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start; }
+  .control-group{ display:flex; flex-direction:column; gap:8px; }
+  .control-label{ font-size:11px; font-weight:600; color:var(--ink-soft); text-transform:none; }
+  .btn-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tab-btn{
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft);
+    background:var(--surface); border:1px solid var(--line); padding:8px 14px; border-radius:9px; cursor:pointer;
+  }
+  .tab-btn.active{ color:var(--indigo); background:var(--indigo-soft); border-color:transparent; }
+
+  .device-toggle{ display:flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:3px; }
+  .device-toggle button{ font-size:12.5px; font-weight:600; color:var(--ink-soft); background:transparent; border:none; padding:7px 14px; border-radius:7px; cursor:pointer; }
+  .device-toggle button.active{ background:var(--ink); color:#fff; }
+
+  .page-toggle{ display:flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:3px; }
+  .page-toggle button{ font-size:12.5px; font-weight:600; color:var(--ink-soft); background:transparent; border:none; padding:7px 14px; border-radius:7px; cursor:pointer; }
+  .page-toggle button.active{ background:var(--sage); color:#fff; }
+
+  .concept-note{ max-width:1180px; margin:16px auto 0; padding:12px 24px; }
+  .concept-note p{ font-size:13.5px; color:var(--ink-soft); line-height:1.55; margin:0; max-width:80ch; }
+  .concept-note strong{ color:var(--ink); }
+
+  .stage{ max-width:1180px; margin:18px auto 60px; padding:0 24px; }
+  .frame{ background:#EDEBE3; border-radius:20px; padding:28px; display:flex; justify-content:center; }
+  .device{ background:var(--bg); border-radius:14px; box-shadow:0 20px 50px rgba(28,28,30,0.14); overflow:hidden; position:relative; }
+  .device.desktop{ width:100%; max-width:1020px; height:640px; }
+  .device.mobile{ width:380px; height:720px; }
+
+  .view-panel{ display:none; height:100%; }
+  .view-panel.active{ display:block; height:100%; }
+  .concept-panel{ display:none; height:100%; }
+  .concept-panel.active{ display:block; height:100%; }
+  .page-panel{ display:none; height:100%; }
+  .page-panel.active{ display:block; height:100%; }
+
+  .wordmark{ font-family:'Fraunces',serif; font-weight:600; font-size:17px; letter-spacing:-0.01em; }
+  .avatar{ width:28px; height:28px; border-radius:50%; background:var(--indigo-soft); color:var(--indigo); display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:600; flex-shrink:0; }
+  .glyph{ width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+
+  .app-shell{ display:flex; height:100%; }
+
+  /* ============ shared main nav rail (kept simple/consistent across concepts) ============ */
+  .main-rail{
+    width: 176px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; padding:18px 12px;
+  }
+  .main-rail .wordmark{ padding:0 6px; margin-bottom:20px; }
+  .main-nav{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+  .main-nav a{ display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:8px; color:var(--ink-soft); text-decoration:none; font-size:13px; font-weight:500; }
+  .main-nav a:hover{ background:var(--bg); color:var(--ink); }
+  .main-nav a.active{ background:var(--indigo-soft); color:var(--indigo); font-weight:600; }
+
+  /* ============ D1: second sidebar (three column) ============ */
+  .sub-col{
+    width: 216px; flex-shrink:0; background: var(--bg); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; overflow-y:auto;
+  }
+  .sub-col-head{ padding:16px 16px 10px; }
+  .sub-col-head h3{ font-size:13px; font-weight:600; margin:0 0 2px; }
+  .sub-col-head p{ font-size:11.5px; color:var(--ink-soft); margin:0; }
+  .sub-item{
+    display:flex; flex-direction:column; gap:3px; padding:11px 16px; cursor:pointer;
+    border-left:2px solid transparent;
+  }
+  .sub-item:hover{ background:var(--surface); }
+  .sub-item.active{ background:var(--surface); border-left-color:var(--indigo); }
+  .sub-item .t{ font-size:13px; font-weight:600; }
+  .sub-item.active .t{ color:var(--indigo); }
+  .sub-item .m{ font-size:11.5px; color:var(--ink-soft); }
+  .sub-add{
+    margin:8px 16px; font-size:12.5px; font-weight:600; color:var(--indigo);
+    background:var(--indigo-soft); border:none; padding:8px 10px; border-radius:8px; cursor:pointer; text-align:left;
+  }
+
+  .detail-col{ flex:1; min-width:0; overflow-y:auto; padding:26px 30px; }
+  .detail-col h2{ font-family:'Fraunces',serif; font-weight:500; font-size:22px; margin:0 0 6px; }
+  .detail-col .sub{ color:var(--ink-soft); font-size:13px; margin:0 0 20px; }
+  .placeholder-card{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:10px; }
+  .placeholder-card .line{ height:9px; border-radius:5px; background:var(--line); margin-bottom:7px; }
+  .placeholder-card .line.short{ width:38%; }
+  .placeholder-card .line.med{ width:68%; }
+
+  /* ============ D2: drill-in (sub nav replaces main rail) ============ */
+  .drillin-rail{
+    width: 176px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; padding:18px 12px; overflow-y:auto;
+  }
+  .drillin-back{
+    display:flex; align-items:center; gap:6px; color:var(--ink-soft); font-size:12.5px; font-weight:600;
+    margin-bottom:14px; cursor:pointer; padding:4px 6px;
+  }
+  .drillin-back:hover{ color:var(--ink); }
+  .drillin-title{ font-size:11px; font-weight:600; color:var(--ink-soft); padding:0 6px; margin-bottom:8px; }
+  .drillin-item{
+    display:flex; flex-direction:column; gap:2px; padding:9px 10px; border-radius:8px; cursor:pointer; margin-bottom:2px;
+  }
+  .drillin-item:hover{ background:var(--bg); }
+  .drillin-item.active{ background:var(--indigo-soft); }
+  .drillin-item .t{ font-size:13px; font-weight:600; color:var(--ink); }
+  .drillin-item.active .t{ color:var(--indigo); }
+  .drillin-item .m{ font-size:11px; color:var(--ink-soft); }
+  .drillin-add{
+    margin-top:6px; font-size:12.5px; font-weight:600; color:var(--indigo);
+    background:transparent; border:1px dashed var(--line); padding:8px 10px; border-radius:8px; cursor:pointer; text-align:left;
+  }
+
+  /* ============ D3: header switcher (dropdown) ============ */
+  .switcher-wrap{ position:relative; display:inline-block; }
+  .switcher-btn{
+    display:flex; align-items:center; gap:8px; font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600;
+    color:var(--ink); background:var(--surface); border:1px solid var(--line); padding:9px 14px; border-radius:10px; cursor:pointer;
+  }
+  .switcher-btn .chev{ color:var(--ink-soft); font-size:11px; }
+  .switcher-menu{
+    position:absolute; top:calc(100% + 6px); left:0; min-width:260px; background:var(--surface);
+    border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 30px rgba(28,28,30,0.14);
+    padding:6px; z-index:6; display:none;
+  }
+  .switcher-menu.open{ display:block; }
+  .switcher-opt{ display:flex; flex-direction:column; gap:2px; padding:9px 10px; border-radius:8px; cursor:pointer; }
+  .switcher-opt:hover{ background:var(--bg); }
+  .switcher-opt.active{ background:var(--indigo-soft); }
+  .switcher-opt .t{ font-size:13px; font-weight:600; }
+  .switcher-opt.active .t{ color:var(--indigo); }
+  .switcher-opt .m{ font-size:11.5px; color:var(--ink-soft); }
+  .switcher-add{ margin-top:4px; width:100%; text-align:left; font-size:12.5px; font-weight:600; color:var(--indigo); background:var(--indigo-soft); border:none; padding:8px 10px; border-radius:8px; cursor:pointer; }
+  .switcher-header-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+
+  /* ============ mobile shared chrome ============ */
+  .m-top{ height:54px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid var(--line); background:var(--bg); flex-shrink:0; }
+  .m-top .left{ display:flex; align-items:center; gap:10px; }
+  .m-back{ font-size:18px; color:var(--ink-soft); cursor:pointer; width:22px; }
+  .m-body{ overflow-y:auto; padding:18px 16px; }
+  .mini-fab{ position:absolute; width:42px; height:42px; border-radius:50%; background:var(--indigo); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Fraunces',serif; font-weight:600; font-size:15px; box-shadow:0 6px 16px rgba(91,110,245,0.35); z-index:3; bottom:16px; right:16px; }
+  .m-bottom-tabs{ height:60px; background:var(--surface); border-top:1px solid var(--line); display:flex; flex-shrink:0; }
+  .m-bottom-tabs a{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; text-decoration:none; color:var(--ink-soft); font-size:10px; font-weight:600; }
+  .m-bottom-tabs a.active{ color:var(--indigo); }
+  .m-list-item{ display:flex; flex-direction:column; gap:3px; padding:14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; margin-bottom:10px; }
+  .m-list-item .t{ font-size:14px; font-weight:600; }
+  .m-list-item .m{ font-size:12px; color:var(--ink-soft); }
+  .m-frame{ display:flex; flex-direction:column; height:100%; }
+
+  /* M2 drawer */
+  .m2-scrim{ position:absolute; inset:0; background:rgba(28,28,30,0.28); z-index:4; }
+  .m2-drawer{ position:absolute; top:0; right:0; bottom:0; width:78%; background:var(--surface); border-left:1px solid var(--line); z-index:5; padding:18px 16px; box-shadow:-8px 0 24px rgba(28,28,30,0.14); overflow-y:auto; }
+  .m2-drawer h3{ font-size:13px; font-weight:600; margin:0 0 12px; }
+
+  /* M3 dropdown pill */
+  .m3-pillbar{ padding: 4px 16px 0; }
+  .m3-pill-btn{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;
+    font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600; color:var(--ink);
+    background:var(--surface); border:1px solid var(--line); padding:11px 14px; border-radius:11px; cursor:pointer;
+  }
+  .m3-dropdown{ margin: 8px 16px 0; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:6px; display:none; }
+  .m3-dropdown.open{ display:block; }
+  .m3-opt{ padding:10px; border-radius:8px; cursor:pointer; }
+  .m3-opt:hover{ background:var(--bg); }
+  .m3-opt.active{ background:var(--indigo-soft); }
+  .m3-opt .t{ font-size:13px; font-weight:600; }
+  .m3-opt.active .t{ color:var(--indigo); }
+  .m3-opt .m{ font-size:11.5px; color:var(--ink-soft); }
+
+  @media (max-width:880px){
+    .device.desktop{ transform:scale(0.7); transform-origin:top center; margin-bottom:-190px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="meta-header">
+  <h1>Sub-navigation: Goal, Materials, Sessions</h1>
+  <p>These three pages each need a switchable list underneath the main nav — multiple goals, multiple courses/topics, multiple chat sessions. Pick a desktop concept and a mobile concept independently, then flip between the three pages to see the pattern hold up across all of them.</p>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <span class="control-label">Device</span>
+    <div class="device-toggle" id="deviceToggle">
+      <button class="active" data-device="desktop">Desktop</button>
+      <button data-device="mobile">Mobile</button>
+    </div>
+  </div>
+  <div class="control-group">
+    <span class="control-label">Desktop concept</span>
+    <div class="btn-row" id="desktopConceptTabs">
+      <button class="tab-btn active" data-dconcept="d1">D1 · Second sidebar</button>
+      <button class="tab-btn" data-dconcept="d2">D2 · Drill-in</button>
+      <button class="tab-btn" data-dconcept="d3">D3 · Header switcher</button>
+    </div>
+  </div>
+  <div class="control-group">
+    <span class="control-label">Mobile concept</span>
+    <div class="btn-row" id="mobileConceptTabs">
+      <button class="tab-btn active" data-mconcept="m1">M1 · Full-screen list</button>
+      <button class="tab-btn" data-mconcept="m2">M2 · Slide drawer</button>
+      <button class="tab-btn" data-mconcept="m3">M3 · Dropdown pill</button>
+    </div>
+  </div>
+  <div class="control-group">
+    <span class="control-label">Page</span>
+    <div class="page-toggle" id="pageToggle">
+      <button class="active" data-page="goal">Goal</button>
+      <button data-page="materials">Materials</button>
+      <button data-page="sessions">Sessions</button>
+    </div>
+  </div>
+</div>
+
+<div class="concept-note" id="conceptNote"><p></p></div>
+
+<div class="stage">
+  <div class="frame">
+
+    <!-- ============ DESKTOP DEVICE ============ -->
+    <div class="device desktop view-panel active" data-device="desktop">
+
+      <!-- D1: second sidebar -->
+      <div class="concept-panel active" data-dconcept="d1">
+        <div class="app-shell">
+          <nav class="main-rail">
+            <div class="wordmark">Αθηνα</div>
+            <ul class="main-nav">
+              <li><a href="#">Dashboard</a></li>
+              <li><a href="#" class="active page-link" data-page="goal">Goal</a></li>
+              <li><a href="#" class="page-link" data-page="materials">Materials</a></li>
+              <li><a href="#">Calendar</a></li>
+              <li><a href="#" class="page-link" data-page="sessions">Sessions</a></li>
+              <li><a href="#">Settings</a></li>
+            </ul>
+          </nav>
+
+          <!-- Goal sub-col -->
+          <div class="sub-col page-panel active" data-page="goal">
+            <div class="sub-col-head"><h3>Your goals</h3><p>3 active</p></div>
+            <div class="sub-item active"><span class="t">Thermo midterm</span><span class="m">42% · CHEM 2010</span></div>
+            <div class="sub-item"><span class="t">Pass CS 2110</span><span class="m">68% · overall course</span></div>
+            <div class="sub-item"><span class="t">Grad school apps</span><span class="m">12% · long-term</span></div>
+            <button class="sub-add">+ New goal</button>
+          </div>
+          <div class="sub-col page-panel" data-page="materials">
+            <div class="sub-col-head"><h3>Courses</h3><p>4 tracked</p></div>
+            <div class="sub-item active"><span class="t">CHEM 2010 · Thermo</span><span class="m">2 weak topics</span></div>
+            <div class="sub-item"><span class="t">CS 2110</span><span class="m">1 weak topic</span></div>
+            <div class="sub-item"><span class="t">ENGL 2100</span><span class="m">On track</span></div>
+            <div class="sub-item"><span class="t">All courses</span><span class="m">Combined view</span></div>
+            <button class="sub-add">+ Add course</button>
+          </div>
+          <div class="sub-col page-panel" data-page="sessions">
+            <div class="sub-col-head"><h3>Sessions</h3><p>This week</p></div>
+            <div class="sub-item active"><span class="t">Entropy re-explain</span><span class="m">Today, 2:14 PM</span></div>
+            <div class="sub-item"><span class="t">Lab report draft</span><span class="m">Yesterday</span></div>
+            <div class="sub-item"><span class="t">SQL joins practice</span><span class="m">Sep 10</span></div>
+            <button class="sub-add">+ New session</button>
+          </div>
+
+          <!-- detail -->
+          <div class="detail-col page-panel active" data-page="goal">
+            <h2>Be ready for the Thermo midterm</h2>
+            <p class="sub">Oct 3 · CHEM 2010 · 3 of 7 stages complete</p>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+          </div>
+          <div class="detail-col page-panel" data-page="materials">
+            <h2>CHEM 2010 · Thermodynamics</h2>
+            <p class="sub">Entropy and second law flagged weak</p>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+          </div>
+          <div class="detail-col page-panel" data-page="sessions">
+            <h2>Entropy re-explain</h2>
+            <p class="sub">Today, 2:14 PM · 12 messages</p>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- D2: drill-in -->
+      <div class="concept-panel" data-dconcept="d2">
+        <div class="app-shell">
+          <nav class="drillin-rail">
+            <div class="drillin-back">← All pages</div>
+            <div class="drillin-title page-panel active" data-page="goal">GOALS</div>
+            <div class="drillin-title page-panel" data-page="materials">COURSES</div>
+            <div class="drillin-title page-panel" data-page="sessions">SESSIONS</div>
+
+            <div class="page-panel active" data-page="goal">
+              <div class="drillin-item active"><span class="t">Thermo midterm</span><span class="m">42%</span></div>
+              <div class="drillin-item"><span class="t">Pass CS 2110</span><span class="m">68%</span></div>
+              <div class="drillin-item"><span class="t">Grad school apps</span><span class="m">12%</span></div>
+              <button class="drillin-add">+ New goal</button>
+            </div>
+            <div class="page-panel" data-page="materials">
+              <div class="drillin-item active"><span class="t">CHEM 2010</span><span class="m">2 weak</span></div>
+              <div class="drillin-item"><span class="t">CS 2110</span><span class="m">1 weak</span></div>
+              <div class="drillin-item"><span class="t">ENGL 2100</span><span class="m">On track</span></div>
+              <button class="drillin-add">+ Add course</button>
+            </div>
+            <div class="page-panel" data-page="sessions">
+              <div class="drillin-item active"><span class="t">Entropy re-explain</span><span class="m">Today</span></div>
+              <div class="drillin-item"><span class="t">Lab report draft</span><span class="m">Yesterday</span></div>
+              <div class="drillin-item"><span class="t">SQL joins</span><span class="m">Sep 10</span></div>
+              <button class="drillin-add">+ New session</button>
+            </div>
+          </nav>
+
+          <div class="detail-col page-panel active" data-page="goal">
+            <h2>Be ready for the Thermo midterm</h2>
+            <p class="sub">Oct 3 · CHEM 2010 · 3 of 7 stages complete</p>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+          </div>
+          <div class="detail-col page-panel" data-page="materials">
+            <h2>CHEM 2010 · Thermodynamics</h2>
+            <p class="sub">Entropy and second law flagged weak</p>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+          </div>
+          <div class="detail-col page-panel" data-page="sessions">
+            <h2>Entropy re-explain</h2>
+            <p class="sub">Today, 2:14 PM · 12 messages</p>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- D3: header switcher -->
+      <div class="concept-panel" data-dconcept="d3">
+        <div class="app-shell">
+          <nav class="main-rail">
+            <div class="wordmark">Αθηνα</div>
+            <ul class="main-nav">
+              <li><a href="#">Dashboard</a></li>
+              <li><a href="#" class="active page-link" data-page="goal">Goal</a></li>
+              <li><a href="#" class="page-link" data-page="materials">Materials</a></li>
+              <li><a href="#">Calendar</a></li>
+              <li><a href="#" class="page-link" data-page="sessions">Sessions</a></li>
+              <li><a href="#">Settings</a></li>
+            </ul>
+          </nav>
+          <main class="detail-col" style="flex:1;">
+
+            <div class="page-panel active" data-page="goal">
+              <div class="switcher-header-row">
+                <div class="switcher-wrap">
+                  <button class="switcher-btn d3-toggle">Thermo midterm <span class="chev">▾</span></button>
+                  <div class="switcher-menu">
+                    <div class="switcher-opt active"><span class="t">Thermo midterm</span><span class="m">42% · CHEM 2010</span></div>
+                    <div class="switcher-opt"><span class="t">Pass CS 2110</span><span class="m">68%</span></div>
+                    <div class="switcher-opt"><span class="t">Grad school apps</span><span class="m">12%</span></div>
+                    <button class="switcher-add">+ New goal</button>
+                  </div>
+                </div>
+              </div>
+              <h2>Be ready for the Thermo midterm</h2>
+              <p class="sub">Oct 3 · CHEM 2010 · 3 of 7 stages complete</p>
+              <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+              <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            </div>
+
+            <div class="page-panel" data-page="materials">
+              <div class="switcher-header-row">
+                <div class="switcher-wrap">
+                  <button class="switcher-btn d3-toggle">CHEM 2010 · Thermo <span class="chev">▾</span></button>
+                  <div class="switcher-menu">
+                    <div class="switcher-opt active"><span class="t">CHEM 2010 · Thermo</span><span class="m">2 weak topics</span></div>
+                    <div class="switcher-opt"><span class="t">CS 2110</span><span class="m">1 weak topic</span></div>
+                    <div class="switcher-opt"><span class="t">ENGL 2100</span><span class="m">On track</span></div>
+                    <button class="switcher-add">+ Add course</button>
+                  </div>
+                </div>
+              </div>
+              <h2>CHEM 2010 · Thermodynamics</h2>
+              <p class="sub">Entropy and second law flagged weak</p>
+              <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+              <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            </div>
+
+            <div class="page-panel" data-page="sessions">
+              <div class="switcher-header-row">
+                <div class="switcher-wrap">
+                  <button class="switcher-btn d3-toggle">Entropy re-explain <span class="chev">▾</span></button>
+                  <div class="switcher-menu">
+                    <div class="switcher-opt active"><span class="t">Entropy re-explain</span><span class="m">Today, 2:14 PM</span></div>
+                    <div class="switcher-opt"><span class="t">Lab report draft</span><span class="m">Yesterday</span></div>
+                    <div class="switcher-opt"><span class="t">SQL joins practice</span><span class="m">Sep 10</span></div>
+                    <button class="switcher-add">+ New session</button>
+                  </div>
+                </div>
+              </div>
+              <h2>Entropy re-explain</h2>
+              <p class="sub">Today, 2:14 PM · 12 messages</p>
+              <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+              <div class="placeholder-card"><div class="line med"></div><div class="line short"></div></div>
+            </div>
+
+          </main>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============ MOBILE DEVICE ============ -->
+    <div class="device mobile view-panel" data-device="mobile">
+
+      <!-- M1: full-screen list -->
+      <div class="concept-panel active" data-mconcept="m1" style="height:100%;">
+        <div class="m-frame">
+
+          <div class="page-panel active" data-page="goal" style="height:100%; display:flex; flex-direction:column;">
+            <div class="m-top"><div class="wordmark">Goals</div><div class="avatar">Z</div></div>
+            <div class="m-body" style="flex:1;">
+              <div class="m-list-item"><span class="t">Thermo midterm</span><span class="m">42% · CHEM 2010</span></div>
+              <div class="m-list-item"><span class="t">Pass CS 2110</span><span class="m">68% overall</span></div>
+              <div class="m-list-item"><span class="t">Grad school apps</span><span class="m">12% · long-term</span></div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#" class="active">Goal</a><a href="#">Materials</a><a href="#">Calendar</a><a href="#">Sessions</a>
+            </nav>
+          </div>
+
+          <div class="page-panel" data-page="materials" style="height:100%; display:flex; flex-direction:column;">
+            <div class="m-top"><div class="wordmark">Courses</div><div class="avatar">Z</div></div>
+            <div class="m-body" style="flex:1;">
+              <div class="m-list-item"><span class="t">CHEM 2010 · Thermo</span><span class="m">2 weak topics</span></div>
+              <div class="m-list-item"><span class="t">CS 2110</span><span class="m">1 weak topic</span></div>
+              <div class="m-list-item"><span class="t">ENGL 2100</span><span class="m">On track</span></div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#">Goal</a><a href="#" class="active">Materials</a><a href="#">Calendar</a><a href="#">Sessions</a>
+            </nav>
+          </div>
+
+          <div class="page-panel" data-page="sessions" style="height:100%; display:flex; flex-direction:column;">
+            <div class="m-top"><div class="wordmark">Sessions</div><div class="avatar">Z</div></div>
+            <div class="m-body" style="flex:1;">
+              <div class="m-list-item"><span class="t">Entropy re-explain</span><span class="m">Today, 2:14 PM</span></div>
+              <div class="m-list-item"><span class="t">Lab report draft</span><span class="m">Yesterday</span></div>
+              <div class="m-list-item"><span class="t">SQL joins practice</span><span class="m">Sep 10</span></div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#">Goal</a><a href="#">Materials</a><a href="#">Calendar</a><a href="#" class="active">Sessions</a>
+            </nav>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- M2: slide drawer -->
+      <div class="concept-panel" data-mconcept="m2" style="height:100%; position:relative;">
+        <div class="m-frame">
+          <div class="page-panel active" data-page="goal" style="height:100%; display:flex; flex-direction:column; position:relative;">
+            <div class="m-top"><div class="left"><span class="glyph">☰</span><div class="wordmark">Thermo midterm</div></div><div class="avatar">Z</div></div>
+            <div class="m-body" style="flex:1;">
+              <h2 style="font-family:'Fraunces',serif;font-weight:500;font-size:20px;margin:0 0 4px;">Be ready for the Thermo midterm</h2>
+              <p class="m" style="margin-bottom:16px;">Oct 3 · CHEM 2010 · 3 of 7 stages</p>
+              <div class="m-list-item"><span class="t">Placeholder content</span><span class="m">Roadmap step</span></div>
+              <div class="m-list-item"><span class="t">Placeholder content</span><span class="m">Roadmap step</span></div>
+              <div class="mini-fab">Α</div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#" class="active">Goal</a><a href="#">Materials</a><a href="#">Calendar</a><a href="#">Sessions</a>
+            </nav>
+          </div>
+          <div class="page-panel" data-page="materials" style="height:100%; display:flex; flex-direction:column; position:relative;">
+            <div class="m-top"><div class="left"><span class="glyph">☰</span><div class="wordmark">CHEM 2010</div></div><div class="avatar">Z</div></div>
+            <div class="m-body" style="flex:1;">
+              <h2 style="font-family:'Fraunces',serif;font-weight:500;font-size:20px;margin:0 0 4px;">CHEM 2010 · Thermo</h2>
+              <p class="m" style="margin-bottom:16px;">Entropy and second law flagged weak</p>
+              <div class="m-list-item"><span class="t">Placeholder content</span><span class="m">Topic row</span></div>
+              <div class="m-list-item"><span class="t">Placeholder content</span><span class="m">Topic row</span></div>
+              <div class="mini-fab">Α</div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#">Goal</a><a href="#" class="active">Materials</a><a href="#">Calendar</a><a href="#">Sessions</a>
+            </nav>
+          </div>
+          <div class="page-panel" data-page="sessions" style="height:100%; display:flex; flex-direction:column; position:relative;">
+            <div class="m-top"><div class="left"><span class="glyph">☰</span><div class="wordmark">Entropy re-explain</div></div><div class="avatar">Z</div></div>
+            <div class="m-body" style="flex:1;">
+              <h2 style="font-family:'Fraunces',serif;font-weight:500;font-size:20px;margin:0 0 4px;">Entropy re-explain</h2>
+              <p class="m" style="margin-bottom:16px;">Today, 2:14 PM · 12 messages</p>
+              <div class="m-list-item"><span class="t">Placeholder message</span><span class="m">Chat bubble</span></div>
+              <div class="m-list-item"><span class="t">Placeholder message</span><span class="m">Chat bubble</span></div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#">Goal</a><a href="#">Materials</a><a href="#">Calendar</a><a href="#" class="active">Sessions</a>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <!-- M3: dropdown pill -->
+      <div class="concept-panel" data-mconcept="m3" style="height:100%;">
+        <div class="m-frame">
+
+          <div class="page-panel active" data-page="goal" style="height:100%; display:flex; flex-direction:column;">
+            <div class="m-top"><div class="wordmark">Goal</div><div class="avatar">Z</div></div>
+            <div class="m3-pillbar">
+              <button class="m3-pill-btn m3-toggle">Thermo midterm <span>▾</span></button>
+              <div class="m3-dropdown">
+                <div class="m3-opt active"><span class="t">Thermo midterm</span><span class="m">42% · CHEM 2010</span></div>
+                <div class="m3-opt"><span class="t">Pass CS 2110</span><span class="m">68%</span></div>
+                <div class="m3-opt"><span class="t">Grad school apps</span><span class="m">12%</span></div>
+              </div>
+            </div>
+            <div class="m-body" style="flex:1;">
+              <h2 style="font-family:'Fraunces',serif;font-weight:500;font-size:20px;margin:8px 0 4px;">Be ready for the Thermo midterm</h2>
+              <p class="m" style="margin-bottom:16px;">Oct 3 · 3 of 7 stages</p>
+              <div class="m-list-item"><span class="t">Placeholder content</span><span class="m">Roadmap step</span></div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#" class="active">Goal</a><a href="#">Materials</a><a href="#">Calendar</a><a href="#">Sessions</a>
+            </nav>
+          </div>
+
+          <div class="page-panel" data-page="materials" style="height:100%; display:flex; flex-direction:column;">
+            <div class="m-top"><div class="wordmark">Materials</div><div class="avatar">Z</div></div>
+            <div class="m3-pillbar">
+              <button class="m3-pill-btn m3-toggle">CHEM 2010 · Thermo <span>▾</span></button>
+              <div class="m3-dropdown">
+                <div class="m3-opt active"><span class="t">CHEM 2010 · Thermo</span><span class="m">2 weak topics</span></div>
+                <div class="m3-opt"><span class="t">CS 2110</span><span class="m">1 weak topic</span></div>
+                <div class="m3-opt"><span class="t">ENGL 2100</span><span class="m">On track</span></div>
+              </div>
+            </div>
+            <div class="m-body" style="flex:1;">
+              <h2 style="font-family:'Fraunces',serif;font-weight:500;font-size:20px;margin:8px 0 4px;">CHEM 2010 · Thermo</h2>
+              <p class="m" style="margin-bottom:16px;">Entropy and second law flagged weak</p>
+              <div class="m-list-item"><span class="t">Placeholder content</span><span class="m">Topic row</span></div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#">Goal</a><a href="#" class="active">Materials</a><a href="#">Calendar</a><a href="#">Sessions</a>
+            </nav>
+          </div>
+
+          <div class="page-panel" data-page="sessions" style="height:100%; display:flex; flex-direction:column;">
+            <div class="m-top"><div class="wordmark">Sessions</div><div class="avatar">Z</div></div>
+            <div class="m3-pillbar">
+              <button class="m3-pill-btn m3-toggle">Entropy re-explain <span>▾</span></button>
+              <div class="m3-dropdown">
+                <div class="m3-opt active"><span class="t">Entropy re-explain</span><span class="m">Today, 2:14 PM</span></div>
+                <div class="m3-opt"><span class="t">Lab report draft</span><span class="m">Yesterday</span></div>
+                <div class="m3-opt"><span class="t">SQL joins practice</span><span class="m">Sep 10</span></div>
+              </div>
+            </div>
+            <div class="m-body" style="flex:1;">
+              <h2 style="font-family:'Fraunces',serif;font-weight:500;font-size:20px;margin:8px 0 4px;">Entropy re-explain</h2>
+              <p class="m" style="margin-bottom:16px;">Today, 2:14 PM · 12 messages</p>
+              <div class="m-list-item"><span class="t">Placeholder message</span><span class="m">Chat bubble</span></div>
+            </div>
+            <nav class="m-bottom-tabs">
+              <a href="#">Dashboard</a><a href="#">Goal</a><a href="#">Materials</a><a href="#">Calendar</a><a href="#" class="active">Sessions</a>
+            </nav>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const dNotes = {
+    d1: "<strong>D1 · Second sidebar (three-column)</strong> — main rail, then a dedicated sub-list column (goals/courses/sessions), then the detail pane. Everything is visible at once, switching is a single click, no page ever hides another. Costs the most horizontal space, so content area gets narrower — fine on a laptop, tight on anything below ~1280px wide.",
+    d2: "<strong>D2 · Drill-in</strong> — clicking a top-level nav item swaps the rail's contents in place: it becomes a back arrow + the sub-list (goals/courses/sessions) instead of the main nav. Only one sidebar ever exists, so it's more space-efficient than D1, but switching between top-level sections costs an extra click (back, then pick a different page).",
+    d3: "<strong>D3 · Header switcher (dropdown)</strong> — the main rail stays exactly as it is on every page; the sub-list becomes a dropdown pill at the top of the content area itself. No second sidebar at all, so content gets full width. Best if the sub-list is usually short (a handful of goals/courses) — gets awkward if someone accumulates 20+ sessions and needs to scan/search rather than click through a dropdown."
+  };
+  const mNotes = {
+    m1: "<strong>M1 · Full-screen list → detail</strong> — tapping Goal/Materials/Sessions in the bottom bar shows a full-screen list first; tapping an item pushes into its detail with a back arrow (not shown in this static mock, but standard). Most familiar mobile pattern, but adds a mandatory extra tap every single time, even to return to the same goal you were just looking at.",
+    m2: "<strong>M2 · Slide drawer</strong> — the page opens straight into the last/default item's detail (no forced list screen), and a hamburger button in the header slides in the switchable list as a drawer over the content. Fewer taps for the common case (returning to what you were just doing), and it keeps the bottom-right corner free for the chat FAB. Slightly less discoverable that other goals/courses/sessions exist.",
+    m3: "<strong>M3 · Dropdown pill</strong> — content loads immediately, and a pill switcher sits right under the header; tapping it expands a short list inline without leaving the page or covering it with a drawer. Cheapest to build and fastest to switch between 2-4 items, but a long list (many past sessions) turns into a tall inline dropdown rather than a proper scrollable list — better paired with search/filter if Sessions grows large."
+  };
+
+  const state = { device: 'desktop', dconcept: 'd1', mconcept: 'm1', page: 'goal' };
+
+  function updateNote(){
+    document.getElementById('conceptNote').querySelector('p').innerHTML =
+      state.device === 'desktop' ? dNotes[state.dconcept] : mNotes[state.mconcept];
+  }
+
+  function applyPage(){
+    document.querySelectorAll('.page-panel').forEach(p => p.classList.toggle('active', p.dataset.page === state.page));
+    document.querySelectorAll('.page-link').forEach(a => a.classList.toggle('active', a.dataset.page === state.page));
+    document.querySelectorAll('.page-toggle button').forEach(b => b.classList.toggle('active', b.dataset.page === state.page));
+  }
+
+  document.getElementById('deviceToggle').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.device = btn.dataset.device;
+    document.querySelectorAll('#deviceToggle button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('active', p.dataset.device === state.device));
+    updateNote();
+  });
+
+  document.getElementById('desktopConceptTabs').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.dconcept = btn.dataset.dconcept;
+    document.querySelectorAll('#desktopConceptTabs button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('[data-device="desktop"] .concept-panel').forEach(p => p.classList.toggle('active', p.dataset.dconcept === state.dconcept));
+    updateNote();
+  });
+
+  document.getElementById('mobileConceptTabs').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.mconcept = btn.dataset.mconcept;
+    document.querySelectorAll('#mobileConceptTabs button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('[data-device="mobile"] .concept-panel').forEach(p => p.classList.toggle('active', p.dataset.mconcept === state.mconcept));
+    updateNote();
+  });
+
+  document.getElementById('pageToggle').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if(!btn) return;
+    state.page = btn.dataset.page;
+    applyPage();
+  });
+
+  // main-rail page links inside D1/D2/D3 mocks also switch page
+  document.querySelectorAll('.page-link').forEach(a => {
+    a.addEventListener('click', ev => {
+      ev.preventDefault();
+      state.page = a.dataset.page;
+      applyPage();
+    });
+  });
+
+  // D3 dropdown toggles
+  document.querySelectorAll('.d3-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const menu = btn.parentElement.querySelector('.switcher-menu');
+      document.querySelectorAll('.switcher-menu.open').forEach(m => { if(m !== menu) m.classList.remove('open'); });
+      menu.classList.toggle('open');
+    });
+  });
+  document.addEventListener('click', e => {
+    if(!e.target.closest('.switcher-wrap')){
+      document.querySelectorAll('.switcher-menu.open').forEach(m => m.classList.remove('open'));
+    }
+  });
+
+  // M3 dropdown toggles
+  document.querySelectorAll('.m3-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.parentElement.querySelector('.m3-dropdown').classList.toggle('open');
+    });
+  });
+
+  // M2 drawer toggle (hamburger)
+  document.querySelectorAll('[data-mconcept="m2"] .glyph').forEach(icon => {
+    icon.style.cursor = 'pointer';
+    icon.addEventListener('click', () => {
+      const pagePanel = icon.closest('.page-panel');
+      let existing = pagePanel.querySelector('.m2-drawer');
+      if(existing){ existing.remove(); pagePanel.querySelector('.m2-scrim')?.remove(); return; }
+      const scrim = document.createElement('div'); scrim.className = 'm2-scrim';
+      const drawer = document.createElement('div'); drawer.className = 'm2-drawer';
+      const page = pagePanel.dataset.page;
+      const lists = {
+        goal: [['Thermo midterm','42% · CHEM 2010',true],['Pass CS 2110','68%',false],['Grad school apps','12%',false]],
+        materials: [['CHEM 2010 · Thermo','2 weak topics',true],['CS 2110','1 weak topic',false],['ENGL 2100','On track',false]],
+        sessions: [['Entropy re-explain','Today, 2:14 PM',true],['Lab report draft','Yesterday',false],['SQL joins practice','Sep 10',false]]
+      };
+      const label = { goal:'Your goals', materials:'Courses', sessions:'Sessions' }[page];
+      drawer.innerHTML = `<h3>${label}</h3>` + lists[page].map(([t,m,active]) =>
+        `<div class="m-list-item" style="${active ? 'border-color:var(--indigo);' : ''}"><span class="t">${t}</span><span class="m">${m}</span></div>`
+      ).join('');
+      pagePanel.style.position = 'relative';
+      pagePanel.appendChild(scrim);
+      pagePanel.appendChild(drawer);
+      scrim.addEventListener('click', () => { drawer.remove(); scrim.remove(); });
+    });
+  });
+
+  updateNote();
+</script>
+
+</body>
+</html>

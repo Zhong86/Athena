@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{ color:inherit; }
+
+  .shell{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ===== Navbar (shared) ===== */
+  .navbar{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-inner{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .wordmark{
+    font-family:'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    flex-shrink: 0;
+  }
+
+  .nav-links{
+    list-style:none;
+    display:flex;
+    align-items:center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-links a{
+    display:block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .nav-links a:hover{
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  .nav-links a.active{
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+
+  .nav-right{
+    display:flex;
+    align-items:center;
+    gap: 18px;
+  }
+
+  .avatar{
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    font-weight: 600;
+    font-family:'Inter', sans-serif;
+    flex-shrink: 0;
+  }
+
+  .nav-toggle{
+    display:none;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding: 8px;
+  }
+
+  .nav-toggle span, .nav-toggle::before, .nav-toggle::after{
+    content:'';
+    display:block;
+    width: 20px;
+    height: 2px;
+    background: var(--ink);
+    margin: 4px 0;
+  }
+
+  @media (max-width: 640px){
+    .nav-links{ display:none; }
+    .nav-toggle{ display:block; }
+  }
+
+  /* ===== Page head ===== */
+  .greeting{
+    margin-bottom: 40px;
+  }
+
+  .greeting h1{
+    font-family:'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(28px, 4vw, 36px);
+    line-height: 1.25;
+    margin: 0 0 8px;
+    max-width: 18ch;
+  }
+
+  .greeting p{
+    color: var(--ink-soft);
+    font-size: 15px;
+    margin: 0;
+    max-width: 54ch;
+  }
+
+  /* ===== Section shared ===== */
+  .section{
+    margin-bottom: 40px;
+  }
+
+  .section-head{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .section-head h2{
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-sub{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+
+  /* ===== Settings group card ===== */
+  .settings-card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .setting-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .setting-row:last-child{ border-bottom: none; }
+
+  .setting-copy{ flex: 1; min-width: 0; }
+
+  .setting-title-line{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-bottom: 3px;
+    flex-wrap: wrap;
+  }
+
+  .setting-title{
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .setting-desc{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .setting-badge{
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .setting-badge.routing{
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+
+  /* ===== Toggle switch ===== */
+  .toggle{
+    position: relative;
+    width: 42px;
+    height: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .toggle input{
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-track{
+    position: absolute;
+    inset: 0;
+    background: var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .toggle-track::before{
+    content:'';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+
+  .toggle input:checked + .toggle-track{
+    background: var(--indigo);
+  }
+
+  .toggle input:checked + .toggle-track::before{
+    transform: translateX(18px);
+  }
+
+  .toggle input:focus-visible + .toggle-track{
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  /* ===== Sub-row (indented dependent setting) ===== */
+  .setting-row.sub{
+    padding-left: 20px;
+    background: var(--bg);
+  }
+
+  .setting-row.sub .setting-title{
+    font-size: 13.5px;
+  }
+
+  /* ===== Select-style row (non-toggle setting) ===== */
+  .setting-select{
+    font-family:'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .setting-select:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  /* ===== Deprioritized notice ===== */
+  .deferred-note{
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+  }
+
+  .deferred-note-icon{
+    color: var(--ink-soft);
+    font-size: 12px;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .deferred-note p{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .deferred-note strong{ color: var(--ink); font-weight: 600; }
+
+  /* ===== Buttons (shared) ===== */
+  .btn{
+    font-family:'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+
+  .btn:hover{ background: #4759DE; }
+
+  .btn.danger{
+    background: var(--coral-soft);
+    color: var(--coral);
+  }
+
+  .btn.danger:hover{ background: var(--coral); color: #fff; }
+
+  .btn:focus-visible, a:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  .account-row{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    flex-wrap: wrap;
+  }
+
+  .account-identity{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+  }
+
+  .account-avatar{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 14px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .account-name{
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 2px;
+  }
+
+  .account-email{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .footnote{
+    text-align:center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 60px;
+  }
+
+  @media (max-width: 560px){
+    .setting-row{ padding: 16px; }
+    .account-row{ padding: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .btn, .toggle-track, .toggle-track::before{ transition: none; }
+  }
+
+  /* ===== Sticky chat button (shared) ===== */
+  .chat-fab{
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--indigo);
+    border: none;
+    box-shadow: 0 6px 20px rgba(91, 110, 245, 0.35);
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index: 50;
+    padding: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .chat-fab:hover{
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(91, 110, 245, 0.45);
+  }
+
+  .chat-fab-glyph{
+    color: #fff;
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  .chat-fab:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 3px;
+  }
+
+  /* ===== Chat panel (shared) ===== */
+  .chat-panel{
+    position: fixed;
+    bottom: 96px;
+    right: 24px;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    height: 440px;
+    max-height: calc(100vh - 140px);
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 48px rgba(28, 28, 30, 0.16);
+    display:flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 49;
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .chat-panel.open{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .chat-panel-head{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  .chat-panel-head .name{
+    font-size: 14px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .chat-panel-close{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .chat-panel-close:hover{ color: var(--ink); }
+
+  .chat-panel-body{
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chat-bubble{
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .chat-bubble.agent{
+    background: var(--indigo-soft);
+    color: var(--ink);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .chat-panel-input{
+    display:flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  .chat-panel-input input{
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .chat-panel-input input:focus{
+    outline: none;
+    border-color: var(--indigo);
+  }
+
+  .chat-panel-send{
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .chat-panel-send:hover{ background: #4759DE; }
+
+  @media (max-width: 420px){
+    .chat-panel{
+      right: 16px;
+      bottom: 90px;
+      width: calc(100vw - 32px);
+    }
+    .chat-fab{ right: 16px; bottom: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <div class="wordmark">Αθηνα</div>
+
+    <ul class="nav-links">
+      <li><a href="#">Dashboard</a></li>
+      <li><a href="#">Goal</a></li>
+      <li><a href="#">Materials</a></li>
+      <li><a href="#">Sessions</a></li>
+      <li><a href="#" class="active">Settings</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <button class="nav-toggle" aria-label="Open menu"></button>
+      <div class="avatar">Z</div>
+    </div>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <div class="greeting">
+    <h1>How Hermes works for you.</h1>
+    <p>Each toggle controls something Hermes actually does in the background — not a cosmetic preference. Turn something off and the related signal stops feeding your Dashboard, Goal, or Materials pages.</p>
+  </div>
+
+  <!-- Account -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Account</h2>
+    </div>
+    <p class="section-sub">Hermes only reads what's needed to build your Priority Feed and roadmap — nothing is shared beyond this app.</p>
+
+    <div class="settings-card">
+      <div class="account-row">
+        <div class="account-identity">
+          <div class="account-avatar">Z</div>
+          <div>
+            <p class="account-name">Zhong</p>
+            <p class="account-email">Connected via Google · zhong@university.edu</p>
+          </div>
+        </div>
+        <button class="btn danger">Disconnect Google</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- General -->
+  <div class="section">
+    <div class="section-head">
+      <h2>General</h2>
+    </div>
+    <p class="section-sub">Controls the signals Hermes cross-references to build the Dashboard's Priority Feed.</p>
+
+    <div class="settings-card">
+      <div class="setting-row">
+        <div class="setting-copy">
+          <div class="setting-title-line">
+            <p class="setting-title">Google Calendar access</p>
+            <span class="setting-badge routing">Powers Dashboard</span>
+          </div>
+          <p class="setting-desc">Lets Hermes read deadlines and events to rank your Priority Feed by urgency. Turning this off removes due-date ranking entirely — items will only be ordered by weak-topic signal.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="setting-row sub">
+        <div class="setting-copy">
+          <p class="setting-title">Calendar write access</p>
+          <p class="setting-desc">Allow Hermes to add study blocks directly to your calendar, not just read deadlines.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <div class="setting-title-line">
+            <p class="setting-title">Deadline-priority reordering</p>
+            <span class="setting-badge routing">Powers Dashboard</span>
+          </div>
+          <p class="setting-desc">When on, a deadline tied to a weak topic gets bumped up your feed automatically. Off keeps deadlines sorted by date only.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <p class="setting-title">Google account data scope</p>
+          <p class="setting-desc">Choose what Hermes can read from your Google account beyond Calendar.</p>
+        </div>
+        <select class="setting-select">
+          <option>Calendar only</option>
+          <option>Calendar + profile info</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Materials -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Materials</h2>
+    </div>
+    <p class="section-sub">Controls how Hermes builds topic confidence scores from your files and chats.</p>
+
+    <div class="settings-card">
+      <div class="setting-row">
+        <div class="setting-copy">
+          <p class="setting-title">Allow LLM-auto embedding</p>
+          <p class="setting-desc">New uploads are automatically chunked, tagged to a topic, and embedded without you reviewing the tagging first.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <div class="setting-title-line">
+            <p class="setting-title">Chat sessions as a confidence signal</p>
+            <span class="setting-badge routing">Powers Materials</span>
+          </div>
+          <p class="setting-desc">Lets how you talk through a topic in chat — hesitation, re-asking, confident explanation — affect that topic's confidence score, not just quiz results.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <p class="setting-title">Auto re-quiz on decay</p>
+          <p class="setting-desc">Hermes re-checks a topic you haven't touched in a while, in case confidence has quietly dropped.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Goal -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Goal</h2>
+    </div>
+    <p class="section-sub">Controls how much Hermes can act on your roadmap without checking with you first.</p>
+
+    <div class="settings-card">
+      <div class="setting-row">
+        <div class="setting-copy">
+          <p class="setting-title">Allow external sources</p>
+          <p class="setting-desc">If a milestone can't be grounded in your uploaded Materials, let Hermes research it externally instead of leaving it as a guess.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-copy">
+          <p class="setting-title">Milestone auto-reorder without approval</p>
+          <p class="setting-desc">When off, Hermes proposes a reorder and waits for your confirmation. When on, it reorders your roadmap immediately when new signal comes in.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deprioritized / not MVP -->
+  <div class="section">
+    <div class="deferred-note">
+      <span class="deferred-note-icon">◆</span>
+      <p><strong>Agent tone and full memory management</strong> aren't configurable yet — Hermes uses one consistent tone for now, and the standing facts it keeps about how you learn are visible on the Sessions page but not yet editable here.</p>
+    </div>
+  </div>
+
+  <p class="footnote">Changes take effect on your next check-in · Last synced 2 minutes ago</p>
+
+</div>
+
+<!-- Sticky chat -->
+<button class="chat-fab" id="chatFab" aria-label="Open chat with Αθηνα" aria-expanded="false">
+  <span class="chat-fab-glyph">Α</span>
+</button>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-panel-head">
+    <span class="name">Αθηνα</span>
+    <button class="chat-panel-close" id="chatClose" aria-label="Close chat">✕</button>
+  </div>
+  <div class="chat-panel-body">
+    <div class="chat-bubble agent">Want me to explain what turning off calendar reordering would change on your Dashboard?</div>
+  </div>
+  <div class="chat-panel-input">
+    <input type="text" placeholder="Ask Αθηνα anything...">
+    <button class="chat-panel-send">Send</button>
+  </div>
+</div>
+
+<script>
+  const fab = document.getElementById('chatFab');
+  const panel = document.getElementById('chatPanel');
+  const closeBtn = document.getElementById('chatClose');
+
+  function toggleChat(open){
+    const isOpen = open !== undefined ? open : !panel.classList.contains('open');
+    panel.classList.toggle('open', isOpen);
+    fab.setAttribute('aria-expanded', isOpen);
+  }
+
+  fab.addEventListener('click', () => toggleChat());
+  closeBtn.addEventListener('click', () => toggleChat(false));
+</script>
+
+</body>
+</html>

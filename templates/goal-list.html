@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Goals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{ color:inherit; }
+
+  .shell{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ===== Navbar (shared) ===== */
+  .navbar{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-inner{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .wordmark{
+    font-family:'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    flex-shrink: 0;
+  }
+
+  .nav-links{
+    list-style:none;
+    display:flex;
+    align-items:center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-links a{
+    display:block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .nav-links a:hover{
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  .nav-links a.active{
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+
+  .nav-right{
+    display:flex;
+    align-items:center;
+    gap: 18px;
+  }
+
+  .avatar{
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    font-weight: 600;
+    font-family:'Inter', sans-serif;
+    flex-shrink: 0;
+  }
+
+  .nav-toggle{
+    display:none;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding: 8px;
+  }
+
+  .nav-toggle span, .nav-toggle::before, .nav-toggle::after{
+    content:'';
+    display:block;
+    width: 20px;
+    height: 2px;
+    background: var(--ink);
+    margin: 4px 0;
+  }
+
+  @media (max-width: 640px){
+    .nav-links{ display:none; }
+    .nav-toggle{ display:block; }
+  }
+
+  /* ===== Page head ===== */
+  .greeting{
+    display:flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  .greeting h1{
+    font-family:'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(28px, 4vw, 36px);
+    line-height: 1.25;
+    margin: 0 0 8px;
+    max-width: 15ch;
+  }
+
+  .greeting p{
+    color: var(--ink-soft);
+    font-size: 15px;
+    margin: 0;
+    max-width: 50ch;
+  }
+
+  /* ===== Section shared ===== */
+  .section{
+    margin-bottom: 44px;
+  }
+
+  .section-head{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .section-head h2{
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-head .link{
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1px;
+  }
+
+  .section-head .link:hover{ color: var(--indigo); border-color: var(--indigo); }
+
+  /* ===== Goal cards (list, drill-in entry points) ===== */
+  .goal-list{
+    display:flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .goal-row{
+    display:flex;
+    align-items:center;
+    gap: 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .goal-row:hover{
+    border-color: var(--indigo);
+    box-shadow: 0 4px 16px rgba(28,28,30,0.05);
+  }
+
+  .goal-row .ring{
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position: relative;
+    background:
+      conic-gradient(var(--indigo) calc(var(--pct) * 1%), var(--line) 0);
+  }
+
+  .goal-row .ring::after{
+    content:'';
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    background: var(--surface);
+  }
+
+  .goal-row .ring span{
+    position: relative;
+    z-index: 1;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .goal-row .meta{ flex: 1; min-width: 0; }
+
+  .goal-row .title-line{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  .goal-row .title{
+    font-size: 15.5px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .status-pill{
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .status-pill.active{ color: var(--indigo); background: var(--indigo-soft); }
+  .status-pill.paused{ color: var(--ink-soft); background: var(--line); }
+  .status-pill.done{ color: var(--sage); background: var(--sage-soft); }
+
+  .goal-row .sub{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .goal-row .sub .tag-weak{
+    color: var(--indigo);
+    font-weight: 600;
+  }
+
+  .goal-row .chevron{
+    font-size: 18px;
+    color: var(--ink-soft);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 560px){
+    .goal-row{ padding: 16px; gap: 14px; }
+    .goal-row .ring{ width: 42px; height: 42px; }
+  }
+
+  /* ===== Empty-ish helper card (start new goal) ===== */
+  .new-goal-card{
+    display:flex;
+    align-items:center;
+    gap: 16px;
+    background: var(--indigo-soft);
+    border: 1px dashed var(--indigo);
+    border-radius: 14px;
+    padding: 20px 22px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .new-goal-card .plus-icon{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 20px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .new-goal-card .copy p:first-child{
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0 0 2px;
+    color: var(--ink);
+  }
+
+  .new-goal-card .copy p:last-child{
+    font-size: 13px;
+    margin: 0;
+    color: var(--ink-soft);
+  }
+
+  /* ===== Buttons (shared) ===== */
+  .btn{
+    font-family:'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+    text-decoration: none;
+    display:inline-flex;
+    align-items:center;
+  }
+
+  .btn:hover{ background: #4759DE; }
+
+  .btn:focus-visible, a:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  .footnote{
+    text-align:center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 60px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .btn, .goal-row{ transition: none; }
+  }
+
+  /* ===== Sticky chat button (shared) ===== */
+  .chat-fab{
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--indigo);
+    border: none;
+    box-shadow: 0 6px 20px rgba(91, 110, 245, 0.35);
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index: 50;
+    padding: 0;
+  }
+
+  .chat-fab-glyph{
+    color: #fff;
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <div class="wordmark">Αθηνα</div>
+
+    <ul class="nav-links">
+      <li><a href="dashboard.html">Dashboard</a></li>
+      <li><a href="#" class="active">Goal</a></li>
+      <li><a href="materials.html">Materials</a></li>
+      <li><a href="#">Calendar</a></li>
+      <li><a href="#">Sessions</a></li>
+      <li><a href="#">Settings</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <button class="nav-toggle" aria-label="Open menu"></button>
+      <div class="avatar">Z</div>
+    </div>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <div class="greeting">
+    <div>
+      <h1>Your goals.</h1>
+      <p>Each one turns into a roadmap Hermes builds from your Materials and keeps current as check-ins come in.</p>
+    </div>
+    <a href="goal-creation.html" class="btn">+ New goal</a>
+  </div>
+
+  <!-- Goals list -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Active</h2>
+    </div>
+
+    <div class="goal-list">
+      <a href="goal-detail.html" class="goal-row">
+        <div class="ring" style="--pct:42"><span>42%</span></div>
+        <div class="meta">
+          <div class="title-line">
+            <p class="title">Be ready for the Thermo midterm</p>
+            <span class="status-pill active">Active</span>
+          </div>
+          <p class="sub">CHEM 2010 · Oct 3 · <span class="tag-weak">Entropy</span> is the current focus stage</p>
+        </div>
+        <span class="chevron">›</span>
+      </a>
+
+      <a href="#" class="goal-row">
+        <div class="ring" style="--pct:15"><span>15%</span></div>
+        <div class="meta">
+          <div class="title-line">
+            <p class="title">Land a data analytics internship</p>
+            <span class="status-pill active">Active</span>
+          </div>
+          <p class="sub">Career goal · Roadmap built against a pasted job description · <span class="tag-weak">SQL joins</span> flagged as a gap</p>
+        </div>
+        <span class="chevron">›</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Completed -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Completed</h2>
+    </div>
+
+    <div class="goal-list">
+      <a href="#" class="goal-row">
+        <div class="ring" style="--pct:100"><span>✓</span></div>
+        <div class="meta">
+          <div class="title-line">
+            <p class="title">Pass CS 2110 Problem Set unit</p>
+            <span class="status-pill done">Done</span>
+          </div>
+          <p class="sub">Finished Sep 1 · 6 of 6 stages complete</p>
+        </div>
+        <span class="chevron">›</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Start new -->
+  <div class="section">
+    <a href="goal-creation.html" class="new-goal-card">
+      <div class="plus-icon">+</div>
+      <div class="copy">
+        <p>Start a new goal</p>
+        <p>Tell Hermes what you're working toward — a test, an internship, a skill — and it'll build the roadmap from there.</p>
+      </div>
+    </a>
+  </div>
+
+  <p class="footnote">Roadmaps rebuild after every check-in from Materials and Calendar</p>
+
+</div>
+
+<!-- Sticky chat -->
+<button class="chat-fab" aria-label="Open chat with Αθηνα" aria-expanded="false">
+  <span class="chat-fab-glyph">Α</span>
+</button>
+
+</body>
+</html>

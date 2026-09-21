@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Cold Start</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{ color:inherit; }
+
+  .shell{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .greeting{ margin-top: 8px; }
+
+  /* ===== Navbar ===== */
+  .navbar{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-inner{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .wordmark{
+    font-family:'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    flex-shrink: 0;
+  }
+
+  .nav-links{
+    list-style:none;
+    display:flex;
+    align-items:center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-links a{
+    display:block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .nav-links a:hover{
+    color: var(--ink);
+    background: var(--surface);
+  }
+
+  .nav-links a.active{
+    color: var(--indigo);
+    background: var(--indigo-soft);
+  }
+
+  .nav-right{
+    display:flex;
+    align-items:center;
+    gap: 18px;
+  }
+
+  .avatar{
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    font-weight: 600;
+    font-family:'Inter', sans-serif;
+    flex-shrink: 0;
+  }
+
+  .nav-toggle{
+    display:none;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding: 8px;
+  }
+
+  .nav-toggle span, .nav-toggle::before, .nav-toggle::after{
+    content:'';
+    display:block;
+    width: 20px;
+    height: 2px;
+    background: var(--ink);
+    margin: 4px 0;
+  }
+
+  @media (max-width: 640px){
+    .nav-links{ display:none; }
+    .nav-toggle{ display:block; }
+  }
+
+  /* ===== Greeting ===== */
+  .greeting{
+    margin-bottom: 48px;
+  }
+
+  .greeting h1{
+    font-family:'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(28px, 4vw, 36px);
+    line-height: 1.25;
+    margin: 0 0 8px;
+    max-width: 17ch;
+  }
+
+  .greeting p{
+    color: var(--ink-soft);
+    font-size: 15px;
+    margin: 0;
+    max-width: 52ch;
+  }
+
+  /* ===== Section shared ===== */
+  .section{
+    margin-bottom: 44px;
+  }
+
+  .section-head{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .section-head h2{
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-head .link{
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1px;
+  }
+
+  .section-head .link:hover{ color: var(--indigo); border-color: var(--indigo); }
+
+  /* ===== Setup progress ===== */
+  .setup-card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 24px;
+  }
+
+  .setup-card-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .setup-card h3{
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  .setup-card .sub{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .setup-pill{
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+    padding: 5px 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .setup-steps{
+    list-style:none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .setup-step{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .setup-step:last-child{ border-bottom: none; padding-bottom: 0; }
+
+  .setup-step-num{
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .setup-step.done .setup-step-num{
+    background: var(--sage-soft);
+    color: var(--sage);
+  }
+
+  .setup-step-copy{ flex: 1; min-width: 0; }
+
+  .setup-step-title{
+    font-size: 14.5px;
+    font-weight: 600;
+    margin: 0 0 2px;
+  }
+
+  .setup-step.done .setup-step-title{
+    color: var(--ink-soft);
+    text-decoration: line-through;
+    text-decoration-color: var(--line);
+  }
+
+  .setup-step-reason{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  /* ===== Why-nothing-yet banner (cold-start version of Weak Topic Alert) ===== */
+  .cold-alert{
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+    padding: 16px 18px;
+    background: var(--indigo-soft);
+    border-radius: 12px;
+  }
+
+  .cold-alert-icon{
+    color: var(--indigo);
+    font-size: 12px;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .cold-alert-title{
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+
+  .cold-alert-body{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .cold-alert-body strong{ color: var(--ink); font-weight: 600; }
+
+  /* ===== Priority Feed (deadline-only ranking, no weak-topic tags yet) ===== */
+  .feed-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    border-top: 1px solid var(--line);
+  }
+
+  .feed-item{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .dot{
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot.urgent{ background: var(--coral); }
+  .dot.soon{ background: #E8B923; }
+  .dot.later{ background: var(--sage); }
+
+  .feed-item .meta{ flex: 1; min-width:0; }
+
+  .feed-item .title{
+    font-size: 14.5px;
+    font-weight: 500;
+    margin: 0 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .feed-item .reason{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .feed-item .when{
+    font-size: 13px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .feed-item .when.urgent{ color: var(--coral); font-weight: 500; }
+
+  .feed-footnote-inline{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin: 10px 4px 0;
+    line-height: 1.5;
+  }
+
+  /* ===== Empty state (no materials uploaded) ===== */
+  .empty-state{
+    text-align:center;
+    padding: 36px 24px;
+    background: var(--surface);
+    border: 1px dashed var(--line);
+    border-radius: 14px;
+  }
+
+  .empty-state-icon{
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 auto 14px;
+  }
+
+  .empty-state h3{
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  .empty-state p{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0 auto 18px;
+    max-width: 40ch;
+    line-height: 1.5;
+  }
+
+  /* ===== Buttons (shared) ===== */
+  .btn-inline{
+    font-family:'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    border: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+  }
+
+  .btn-inline:hover{ background: var(--indigo); color: #fff; }
+
+  .btn{
+    font-family:'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+
+  .btn:hover{ background: #4759DE; }
+
+  .btn.ghost{
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+  }
+
+  .btn.ghost:hover{ background: var(--bg); color: var(--ink); border-color: var(--ink-soft); }
+
+  .btn:focus-visible, a:focus-visible, .btn-inline:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  /* ===== Footer nav (simple, mobile-friendly) ===== */
+  .footnote{
+    text-align:center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 60px;
+  }
+
+  @media (max-width: 560px){
+    .setup-card{ padding: 20px; }
+    .feed-item .reason{ white-space: normal; }
+    .feed-item{ align-items: flex-start; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .btn, .btn-inline{ transition: none; }
+  }
+
+  /* ===== Sticky chat button ===== */
+  .chat-fab{
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--indigo);
+    border: none;
+    box-shadow: 0 6px 20px rgba(91, 110, 245, 0.35);
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index: 50;
+    padding: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .chat-fab:hover{
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(91, 110, 245, 0.45);
+  }
+
+  .chat-fab-glyph{
+    color: #fff;
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  .chat-fab:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 3px;
+  }
+
+  /* ===== Chat panel ===== */
+  .chat-panel{
+    position: fixed;
+    bottom: 96px;
+    right: 24px;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    height: 440px;
+    max-height: calc(100vh - 140px);
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 48px rgba(28, 28, 30, 0.16);
+    display:flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 49;
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .chat-panel.open{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .chat-panel-head{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  .chat-panel-head .name{
+    font-size: 14px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .chat-panel-close{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .chat-panel-close:hover{ color: var(--ink); }
+
+  .chat-panel-body{
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chat-bubble{
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .chat-bubble.agent{
+    background: var(--indigo-soft);
+    color: var(--ink);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .chat-panel-input{
+    display:flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  .chat-panel-input input{
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .chat-panel-input input:focus{
+    outline: none;
+    border-color: var(--indigo);
+  }
+
+  .chat-panel-send{
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .chat-panel-send:hover{ background: #4759DE; }
+
+  @media (max-width: 420px){
+    .chat-panel{
+      right: 16px;
+      bottom: 90px;
+      width: calc(100vw - 32px);
+    }
+    .chat-fab{ right: 16px; bottom: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <div class="wordmark">Αθηνα</div>
+
+    <ul class="nav-links">
+      <li><a href="#" class="active">Dashboard</a></li>
+      <li><a href="#">Goal</a></li>
+      <li><a href="#">Materials</a></li>
+      <li><a href="#">Sessions</a></li>
+      <li><a href="#">Settings</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <button class="nav-toggle" aria-label="Open menu"></button>
+      <div class="avatar">Z</div>
+    </div>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <div class="greeting">
+    <h1>Welcome, Zhong.</h1>
+    <p>Hermes doesn't know anything about you yet — it learns from your materials and how you work through them. Let's fix that.</p>
+  </div>
+
+  <!-- Setup progress (replaces Last Check-in — there's no check-in yet) -->
+  <div class="section">
+    <div class="setup-card">
+      <div class="setup-card-top">
+        <div>
+          <h3>Get Hermes up to speed</h3>
+          <p class="sub">Two steps unlock everything else — the Priority Feed, your Goal roadmap, and topic confidence all depend on this.</p>
+        </div>
+        <span class="setup-pill">1 of 2 done</span>
+      </div>
+
+      <ul class="setup-steps">
+        <li class="setup-step done">
+          <div class="setup-step-num">✓</div>
+          <div class="setup-step-copy">
+            <p class="setup-step-title">Connect Google Calendar</p>
+            <p class="setup-step-reason">Done — your deadlines are already showing up in the feed below.</p>
+          </div>
+        </li>
+        <li class="setup-step">
+          <div class="setup-step-num">2</div>
+          <div class="setup-step-copy">
+            <p class="setup-step-title">Upload your first materials</p>
+            <p class="setup-step-reason">Notes, slides, or a syllabus — Hermes reads these to figure out what you're studying and start tracking topic strength.</p>
+          </div>
+          <button class="btn-inline">Upload</button>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Why there's no weak-topic ranking yet (cold-start version of Weak Topic Alert) -->
+  <div class="section">
+    <div class="cold-alert">
+      <span class="cold-alert-icon">◆</span>
+      <div class="cold-alert-copy">
+        <p class="cold-alert-title">Nothing's flagged weak yet — that's expected</p>
+        <p class="cold-alert-body">Hermes ranks deadlines against topics you've struggled with, but it needs at least one quiz or chat session on a topic before it can call anything "weak." Right now your feed below is sorted by <strong>due date only</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Priority Feed — populated from Calendar, no weak-topic tags possible yet -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Priority feed</h2>
+      <a href="#" class="link">View all</a>
+    </div>
+
+    <ul class="feed-list">
+      <li class="feed-item">
+        <span class="dot urgent"></span>
+        <div class="meta">
+          <p class="title">Problem Set 4</p>
+          <p class="reason">CS 2110 · due tomorrow</p>
+        </div>
+        <span class="when urgent">Due tomorrow</span>
+      </li>
+      <li class="feed-item">
+        <span class="dot soon"></span>
+        <div class="meta">
+          <p class="title">Lab report — titration</p>
+          <p class="reason">CHEM 2010 · due in 3 days</p>
+        </div>
+        <span class="when">Due in 3 days</span>
+      </li>
+      <li class="feed-item">
+        <span class="dot later"></span>
+        <div class="meta">
+          <p class="title">Reading response 6</p>
+          <p class="reason">ENGL 2100 · due next week</p>
+        </div>
+        <span class="when">Due next week</span>
+      </li>
+    </ul>
+    <p class="feed-footnote-inline">This will start ranking by weak topics too, once Hermes has something to go on.</p>
+  </div>
+
+  <!-- Materials empty state -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Materials</h2>
+    </div>
+
+    <div class="empty-state">
+      <div class="empty-state-icon">Α</div>
+      <h3>No materials yet</h3>
+      <p>Upload a syllabus, lecture notes, or slides and Hermes will start building a picture of what you know — and what still needs work.</p>
+      <button class="btn">Upload materials</button>
+    </div>
+  </div>
+
+  <p class="footnote">Synced with your student portal and Google Calendar · Last updated just now</p>
+
+</div>
+
+<!-- Sticky chat -->
+<button class="chat-fab" id="chatFab" aria-label="Open chat with Αθηνα" aria-expanded="false">
+  <span class="chat-fab-glyph">Α</span>
+</button>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-panel-head">
+    <span class="name">Αθηνα</span>
+    <button class="chat-panel-close" id="chatClose" aria-label="Close chat">✕</button>
+  </div>
+  <div class="chat-panel-body">
+    <div class="chat-bubble agent">Hey! I'm Hermes. Upload some course materials and I'll start figuring out where you could use the most help — no need to fill out a survey.</div>
+  </div>
+  <div class="chat-panel-input">
+    <input type="text" placeholder="Ask Αθηνα anything...">
+    <button class="chat-panel-send">Send</button>
+  </div>
+</div>
+
+<script>
+  const fab = document.getElementById('chatFab');
+  const panel = document.getElementById('chatPanel');
+  const closeBtn = document.getElementById('chatClose');
+
+  function toggleChat(open){
+    const isOpen = open !== undefined ? open : !panel.classList.contains('open');
+    panel.classList.toggle('open', isOpen);
+    fab.setAttribute('aria-expanded', isOpen);
+  }
+
+  fab.addEventListener('click', () => toggleChat());
+  closeBtn.addEventListener('click', () => toggleChat(false));
+</script>
+
+</body>
+</html>

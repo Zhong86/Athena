@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entropy — Materials</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{ color:inherit; }
+
+  .shell{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ===== Navbar (shared, drill-in state — D2) ===== */
+  .navbar{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-inner{
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .wordmark{
+    font-family:'Fraunces', serif;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    flex-shrink: 0;
+  }
+
+  .nav-links{
+    list-style:none;
+    display:flex;
+    align-items:center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nav-back{
+    display:flex;
+    align-items:center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 8px 12px 8px 8px;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .nav-back:hover{ color: var(--ink); background: var(--surface); }
+
+  .nav-crumb-sep{
+    color: var(--line);
+    font-size: 14px;
+  }
+
+  .nav-crumb-current{
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+    padding: 8px 14px;
+    border-radius: 8px;
+  }
+
+  .nav-right{
+    display:flex;
+    align-items:center;
+    gap: 18px;
+  }
+
+  .avatar{
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    font-weight: 600;
+    font-family:'Inter', sans-serif;
+    flex-shrink: 0;
+  }
+
+  .nav-toggle{
+    display:none;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding: 8px;
+  }
+
+  .nav-toggle span, .nav-toggle::before, .nav-toggle::after{
+    content:'';
+    display:block;
+    width: 20px;
+    height: 2px;
+    background: var(--ink);
+    margin: 4px 0;
+  }
+
+  @media (max-width: 640px){
+    .nav-crumb-current{ display:none; }
+    .nav-crumb-sep{ display:none; }
+    .nav-toggle{ display:block; }
+  }
+
+  /* ===== Topic head ===== */
+  .topic-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .topic-head .title-block{ flex: 1; min-width: 0; }
+
+  .course-label{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 3px 10px;
+    border-radius: 999px;
+    display:inline-block;
+    margin-bottom: 10px;
+  }
+
+  .topic-head h1{
+    font-family:'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(26px, 3.6vw, 34px);
+    line-height: 1.2;
+    margin: 0 0 10px;
+  }
+
+  .topic-desc{
+    color: var(--ink-soft);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 58ch;
+  }
+
+  .score-badge{
+    display:flex;
+    flex-direction: column;
+    align-items:center;
+    justify-content:center;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: var(--coral-soft);
+    flex-shrink: 0;
+  }
+
+  .score-badge .num{
+    font-family:'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--coral);
+    line-height: 1;
+  }
+
+  .score-badge .label{
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--coral);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 560px){
+    .topic-head{ flex-direction: column-reverse; gap: 14px; }
+    .score-badge{ align-self: flex-start; }
+  }
+
+  /* ===== Section shared ===== */
+  .section{
+    margin-bottom: 40px;
+  }
+
+  .section-head{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .section-head h2{
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-head .link{
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1px;
+  }
+
+  .section-head .link:hover{ color: var(--indigo); border-color: var(--indigo); }
+
+  /* ===== Why this score banner ===== */
+  .derive-alert{
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+    padding: 16px 18px;
+    background: var(--indigo-soft);
+    border-radius: 12px;
+  }
+
+  .derive-alert-icon{
+    color: var(--indigo);
+    font-size: 12px;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .derive-alert-title{
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+
+  .derive-alert-body{
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .derive-alert-body strong{ color: var(--ink); font-weight: 600; }
+
+  /* ===== Materials (files feeding this topic) ===== */
+  .material-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .material-row{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  .file-icon{
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .file-icon.pdf{ background: var(--coral-soft); color: var(--coral); }
+  .file-icon.img{ background: var(--sage-soft); color: var(--sage); }
+
+  .material-row .meta{ flex: 1; min-width: 0; }
+
+  .material-row .title{
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .material-row .sub{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .material-row .when{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 560px){
+    .material-row .when{ display:none; }
+  }
+
+  /* ===== Evidence timeline (quizzes + sessions behind the score) ===== */
+  .evidence-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    border-top: 1px solid var(--line);
+  }
+
+  .evidence-row{
+    display:flex;
+    align-items:flex-start;
+    gap: 14px;
+    padding: 16px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .evidence-badge{
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .evidence-badge.quiz{ color: var(--indigo); background: var(--indigo-soft); }
+  .evidence-badge.session{ color: var(--sage); background: var(--sage-soft); }
+
+  .evidence-row .meta{ flex: 1; min-width: 0; }
+
+  .evidence-row .title{
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 3px;
+  }
+
+  .evidence-row .sub{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .evidence-row .when{
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  @media (max-width: 560px){
+    .evidence-row{ flex-wrap: wrap; }
+    .evidence-row .when{ order: 3; width: 100%; margin-top: 2px; }
+  }
+
+  /* ===== Buttons (shared) ===== */
+  .btn-inline{
+    font-family:'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--indigo-soft);
+    color: var(--indigo);
+    border: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+  }
+
+  .btn-inline:hover{ background: var(--indigo); color: #fff; }
+
+  .btn{
+    font-family:'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+
+  .btn:hover{ background: #4759DE; }
+
+  .btn:focus-visible, a:focus-visible, .btn-inline:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 2px;
+  }
+
+  /* ===== Add material CTA ===== */
+  .add-card{
+    display:flex;
+    align-items:center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    border: 1.5px dashed var(--line);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .add-card:hover{
+    border-color: var(--indigo);
+    color: var(--indigo);
+  }
+
+  .footnote{
+    text-align:center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 60px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .btn, .btn-inline{ transition: none; }
+  }
+
+  /* ===== Sticky chat button (shared) ===== */
+  .chat-fab{
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--indigo);
+    border: none;
+    box-shadow: 0 6px 20px rgba(91, 110, 245, 0.35);
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index: 50;
+    padding: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .chat-fab:hover{
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(91, 110, 245, 0.45);
+  }
+
+  .chat-fab-glyph{
+    color: #fff;
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  .chat-fab:focus-visible{
+    outline: 2px solid var(--indigo);
+    outline-offset: 3px;
+  }
+
+  /* ===== Chat panel (shared) ===== */
+  .chat-panel{
+    position: fixed;
+    bottom: 96px;
+    right: 24px;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    height: 440px;
+    max-height: calc(100vh - 140px);
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 48px rgba(28, 28, 30, 0.16);
+    display:flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 49;
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .chat-panel.open{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .chat-panel-head{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  .chat-panel-head .name{
+    font-size: 14px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .chat-panel-close{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .chat-panel-close:hover{ color: var(--ink); }
+
+  .chat-panel-body{
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .chat-bubble{
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .chat-bubble.agent{
+    background: var(--indigo-soft);
+    color: var(--ink);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .chat-panel-input{
+    display:flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+
+  .chat-panel-input input{
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .chat-panel-input input:focus{
+    outline: none;
+    border-color: var(--indigo);
+  }
+
+  .chat-panel-send{
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .chat-panel-send:hover{ background: #4759DE; }
+
+  @media (max-width: 420px){
+    .chat-panel{
+      right: 16px;
+      bottom: 90px;
+      width: calc(100vw - 32px);
+    }
+    .chat-fab{ right: 16px; bottom: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Drill-in nav (D2): back arrow replaces top-level nav, breadcrumb shows current topic -->
+<nav class="navbar">
+  <div class="nav-inner">
+    <div class="wordmark">Αθηνα</div>
+
+    <ul class="nav-links" style="display:flex;">
+      <li><a class="nav-back" href="#">← Materials</a></li>
+      <li class="nav-crumb-sep">/</li>
+      <li><span class="nav-crumb-current">Entropy</span></li>
+    </ul>
+
+    <div class="nav-right">
+      <button class="nav-toggle" aria-label="Open menu"></button>
+      <div class="avatar">Z</div>
+    </div>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <!-- Topic head: description is the point of this page -->
+  <div class="topic-head">
+    <div class="title-block">
+      <span class="course-label">CHEM 2010 · Thermo</span>
+      <h1>Entropy</h1>
+      <p class="topic-desc">The measure of disorder in a system, and why the second law says it only ever goes up for an isolated system. Comes up constantly in the thermo unit — most of your lab write-ups lean on it to explain why reactions run the direction they do.</p>
+    </div>
+    <div class="score-badge">
+      <span class="num">28</span>
+      <span class="label">Weak</span>
+    </div>
+  </div>
+
+  <!-- Why the score is what it is -->
+  <div class="section">
+    <div class="derive-alert">
+      <span class="derive-alert-icon">◆</span>
+      <div class="derive-alert-copy">
+        <p class="derive-alert-title">Score dropped after Tuesday's check-in</p>
+        <p class="derive-alert-body">You missed <strong>2 of 3</strong> questions on entropy specifically — not thermodynamics overall — and hesitated twice when asked to explain it in chat. Hermes will re-check after your next quiz or session.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chunks tagged to this topic, grouped by source file. A chunk belongs to exactly
+       one topic (MVP), but a single file's chunks can span several topics — so a file
+       can legitimately appear on more than one topic page. -->
+  <div class="section">
+    <div class="section-head">
+      <h2>Materials</h2>
+      <span class="link">12 chunks · 3 sources</span>
+    </div>
+
+    <ul class="material-list">
+      <li class="material-row">
+        <div class="file-icon pdf">PDF</div>
+        <div class="meta">
+          <p class="title">Lecture 7 — Entropy & the Second Law.pdf</p>
+          <p class="sub">9 of 34 chunks tagged to Entropy · rest tagged to Heat transfer, Second law</p>
+        </div>
+        <span class="when">9 days ago</span>
+      </li>
+
+      <li class="material-row">
+        <div class="file-icon">TXT</div>
+        <div class="meta">
+          <p class="title">Lab report draft — titration</p>
+          <p class="sub">2 of 5 chunks tagged to Entropy · pasted text</p>
+        </div>
+        <span class="when">2 days ago</span>
+      </li>
+
+      <li class="material-row">
+        <div class="file-icon img">IMG</div>
+        <div class="meta">
+          <p class="title">Whiteboard photo — entropy practice problem</p>
+          <p class="sub">1 of 1 chunk tagged to Entropy · uploaded from Sessions</p>
+        </div>
+        <span class="when">2 days ago</span>
+      </li>
+    </ul>
+
+    <div class="section" style="margin-top: 12px; margin-bottom: 0;">
+      <button class="add-card">+ Add material to Entropy</button>
+    </div>
+  </div>
+
+  <!-- Evidence: quizzes + sessions that produced the score -->
+  <div class="section">
+    <div class="section-head">
+      <h2>What's building this score</h2>
+      <a href="#" class="link">Retake a check-in</a>
+    </div>
+
+    <ul class="evidence-list">
+      <li class="evidence-row">
+        <span class="evidence-badge quiz">Quiz</span>
+        <div class="meta">
+          <p class="title">Tuesday check-in quiz</p>
+          <p class="sub">4 questions on entropy and heat transfer · missed 2</p>
+        </div>
+        <span class="when">2 days ago</span>
+      </li>
+
+      <li class="evidence-row">
+        <span class="evidence-badge session">Session</span>
+        <div class="meta">
+          <p class="title">Chat session, Sep 10</p>
+          <p class="sub">Asked to re-explain the second law twice before it clicked</p>
+        </div>
+        <span class="when">2 days ago</span>
+      </li>
+
+      <li class="evidence-row">
+        <span class="evidence-badge session">Session</span>
+        <div class="meta">
+          <p class="title">Lab report draft review</p>
+          <p class="sub">Entropy section needed the most back-and-forth to get right</p>
+        </div>
+        <span class="when">2 days ago</span>
+      </li>
+    </ul>
+  </div>
+
+  <p class="footnote">Feeds your Goal roadmap and Dashboard priorities · Last updated 2 minutes ago</p>
+
+</div>
+
+<!-- Sticky chat -->
+<button class="chat-fab" id="chatFab" aria-label="Open chat with Αθηνα" aria-expanded="false">
+  <span class="chat-fab-glyph">Α</span>
+</button>
+
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-panel-head">
+    <span class="name">Αθηνα</span>
+    <button class="chat-panel-close" id="chatClose" aria-label="Close chat">✕</button>
+  </div>
+  <div class="chat-panel-body">
+    <div class="chat-bubble agent">Want a quick 3-question check-in on entropy? Takes about two minutes.</div>
+  </div>
+  <div class="chat-panel-input">
+    <input type="text" placeholder="Ask Αθηνα anything...">
+    <button class="chat-panel-send">Send</button>
+  </div>
+</div>
+
+<script>
+  const fab = document.getElementById('chatFab');
+  const panel = document.getElementById('chatPanel');
+  const closeBtn = document.getElementById('chatClose');
+
+  function toggleChat(open){
+    const isOpen = open !== undefined ? open : !panel.classList.contains('open');
+    panel.classList.toggle('open', isOpen);
+    fab.setAttribute('aria-expanded', isOpen);
+  }
+
+  fab.addEventListener('click', () => toggleChat());
+  closeBtn.addEventListener('click', () => toggleChat(false));
+</script>
+
+</body>
+</html>
