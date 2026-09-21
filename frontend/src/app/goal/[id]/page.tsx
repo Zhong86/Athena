@@ -84,7 +84,7 @@ export default async function GoalDetailPage(props: { params: Promise<{ id: stri
           </div>
           <h1>{goal.title}</h1>
           <p>
-            Built from what is in Materials and what is due on Calendar — not a plan you
+            Built from what is in Materials and how you are scoring — not a plan you
             wrote, one Αθηνα is keeping current.
           </p>
         </div>
@@ -186,7 +186,7 @@ export default async function GoalDetailPage(props: { params: Promise<{ id: stri
         ) : null}
 
         <p className="footnote">
-          Ordered from your topic scores and Calendar deadlines
+          Ordered from your topic scores
           {goal.updated_at ? (
             <>
               {" · last updated "}

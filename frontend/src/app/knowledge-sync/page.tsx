@@ -33,7 +33,7 @@ export default async function KnowledgeSyncPage() {
         <div className="greeting">
           <h1>What Αθηνα did on its own.</h1>
           <p>
-            Scheduled runs across your material, calendar and goal — and the actions it
+            Scheduled runs across your material and goals — and the actions it
             took off the back of them. Nothing here was started by you.
           </p>
         </div>
@@ -51,7 +51,12 @@ export default async function KnowledgeSyncPage() {
           </div>
 
           {sessions.length ? (
-            <SessionLog sessions={sessions} showType />
+            <SessionLog
+              sessions={sessions}
+              showType
+              showTrace
+              hrefBase="/knowledge-sync"
+            />
           ) : !error ? (
             <div className="empty-state">
               <strong>Nothing synced yet</strong>

@@ -288,8 +288,8 @@ def test_clarify_turn_guard_stops_the_loop(app_graph, monkeypatch, no_materials)
 
 def test_materials_grounding_and_ordering(app_graph, fake_hermes, monkeypatch):
     """A milestone whose content is in Materials gets tagged `materials`, and a
-    weak topic outranks a strong one on need alone (no calendar deadline --
-    Step 5 isn't built, see `app.goals.context.calendar_context`)."""
+    weak topic outranks a strong one on need alone -- need is the only signal
+    the ranker has."""
     with connection() as conn:
         conn.execute(
             "INSERT INTO topics (id, name, user_understanding) VALUES (1, 'Entropy', 12)"
@@ -340,7 +340,10 @@ def test_materials_grounding_and_ordering(app_graph, fake_hermes, monkeypatch):
     # Provenance is stored, so "See related materials" resolves without a search.
     stored = {m["title"]: m for m in rows}
     assert stored["Rebuild entropy from the ground up"]["source_chunk_ids"] == [11, 12]
-    assert goal["order_rationale"]
+    # Check-ins are the only signal it can cite, so that is the only thing it
+    # claims -- no deadline count, no due date.
+    assert goal["order_rationale"].startswith("Ordered from your check-ins — ")
+    assert "deadline" not in goal["order_rationale"]
 
 
 def test_provenance_is_what_personalize_saw_not_a_later_search(

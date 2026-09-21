@@ -67,7 +67,7 @@ ALTER TABLE goals ADD COLUMN short_name TEXT;        -- nav label: "Thermo midte
 ALTER TABLE goals ADD COLUMN course_code TEXT;       -- "CHEM 2010", NULL for career goals
 ALTER TABLE goals ADD COLUMN category TEXT NOT NULL DEFAULT 'academic'
     CHECK (category IN ('academic', 'career'));
-ALTER TABLE goals ADD COLUMN due_at TEXT;            -- goal deadline, ISO-8601
+ALTER TABLE goals ADD COLUMN due_at TEXT;            -- goal due date, ISO-8601
 ALTER TABLE goals ADD COLUMN derivation TEXT;        -- "Derived from your syllabus and…"
 ALTER TABLE goals ADD COLUMN order_rationale TEXT;   -- goal-level "why this order" copy
 ALTER TABLE goals ADD COLUMN updated_at TEXT;        -- drives "Last updated 2 minutes ago"
@@ -149,7 +149,7 @@ backend/app/
     view.py            # rows -> response models (added during implementation)
     state.py           # Milestone + RoadmapState TypedDicts, row<->state helpers
     graph.py           # StateGraph wiring, checkpointer, conditional edges
-    context.py         # materials_context / calendar_context loaders
+    context.py         # materials_context loader
     llm.py             # JSON-out Hermes calls + sync/async bridge (added)
     research.py        # the research tool (gated fallback path)
     nodes/
@@ -159,7 +159,7 @@ backend/app/
       personalize.py   # personalize_decomposition
       approve.py       # present_for_approval + apply_edits
       commit.py        # commit_roadmap
-  ranking.py           # shared weak-topic x deadline ranking (see below)
+  ranking.py           # shared weak-topic ranking (see below)
 ```
 
 `ranking.py` sits at `app/` top level, not inside `goals/`, because Step 7's Dashboard
@@ -241,23 +241,20 @@ checkpoint — generate them once in `decompose_goal` and never regenerate.
 
 ---
 
-## 4. Context loaders (`goals/context.py`)
+## 4. Context loader (`goals/context.py`)
 
-Both run **before** `personalize_decomposition` and write into state.
+Runs **before** `personalize_decomposition` and writes into state.
 
 ```python
 def materials_context() -> dict   # {"topics": [{"id","name","user_understanding","chunk_count"}]}
-def calendar_context(days: int = 21) -> dict  # {"deadlines": [{"title","due_at","days_until"}]}
 ```
 
 - `materials_context` reads `topics` + chunk counts straight from SQLite (no vector
   search — that happens per milestone inside the node). A topic with
   `user_understanding = -1` is **unknown, not weak**; ranking must treat the two
   differently or every fresh install produces a roadmap that claims evidence it lacks.
-- `calendar_context` calls Step 5's internal deadline lookup. Step 5 is not built yet,
-  so ship this against an empty `calendar_events` table and make the node degrade: no
-  deadlines means no reordering and no "due in 3 days" clauses in reasons, not a crash
-  and not invented dates.
+- A `calendar_context` loader was specified beside it and cut with Step 5
+  (Zhong, 2026-09-21). Materials is the only context the node reads.
 
 ---
 
@@ -286,7 +283,7 @@ def calendar_context(days: int = 21) -> dict  # {"deadlines": [{"title","due_at"
 - Out: `clarified_goal`, plus the extracted goal fields stashed for `commit_roadmap`.
 
 ### `decompose_goal` (`nodes/decompose.py`)
-- In: `clarified_goal` only — **no Materials/Calendar context** (spec is explicit that
+- In: `clarified_goal` only — **no Materials context** (spec is explicit that
   personalization is a separate pass; mixing them makes the two steps untestable).
 - One Hermes call → ordered `[{title, description, order}]`, 5–8 items (the mockup shows
   7; cap it so the approval list stays reviewable).
@@ -303,10 +300,11 @@ The one node with real logic. Per draft milestone:
    `source: "research"`, leave `related_topic_ids` empty. Do not force a materials link
    for a milestone the materials cannot support — that is the failure mode the spec's
    branch exists to prevent.
-4. Reorder the whole list via `app.ranking.rank(...)` — weak topic × near deadline. The
-   mockup's "moved up to feed the titration lab due in 3 days" copy is this function's
+4. Reorder the whole list via `app.ranking.rank(...)` — by how much work each topic
+   needs. The mockup's "moved up because Entropy is scoring weak" copy is this function's
    output made legible, so `rank()` returns `(ordered_items, reasons)`, not just an order.
-   A reason nobody can trace back to a signal is the thing to avoid here.
+   A reason nobody can trace back to a signal is the thing to avoid here. (The mockup's
+   original "due in 3 days" variant went with Step 5.)
 5. Write the accordion fields last, once the order is final: `reason_long`, `est_effort`,
    `unlocks_after`. Both reasons come from **one** Hermes call per milestone returning
    `{"reason": "...", "reason_long": "...", "est_effort_min": 45, "est_effort_max": 60}` —
@@ -364,11 +362,11 @@ Exactly the spec's two:
 - after `present_for_approval`: → `commit_roadmap` if `approval_complete`, else → `apply_edits`
 
 Plus one node the spec implies without naming: **`load_context`**, sitting between
-`decompose_goal` and `personalize_decomposition`. The spec has `materials_context` and
-`calendar_context` in state without saying who fills them, and doing it in its own node
-keeps `personalize_decomposition` a pure function of its inputs — which is what makes it
+`decompose_goal` and `personalize_decomposition`. The spec has `materials_context` in
+state without saying who fills it, and doing it in its own node keeps
+`personalize_decomposition` a pure function of its inputs — which is what makes it
 testable without a database. It runs *after* decomposition, never before, because the spec
-is explicit that `decompose_goal` must not see either signal.
+is explicit that `decompose_goal` must not see that signal.
 
 The checkpointer gets **its own SQLite file** (`data/roadmap_checkpoints.db`), not a table
 in the app database: LangGraph owns that schema and migrating it is not our business.
@@ -451,8 +449,8 @@ depend on a live gateway or a live model download.
 - `test_goal_state.py` — row↔state round-trip in both directions: `order` ↔ `order_index`,
   `source = NULL` ↔ `"user"`, `(45, 60)` ↔ `"45-60 min"`, and `unlocks_after` string id ↔
   integer FK (including a forward reference falling back to `NULL`).
-- `test_ranking.py` — weak-topic × deadline ordering; `user_understanding = -1` is not
-  treated as weak; empty calendar is a no-op.
+- `test_ranking.py` — weak-topic ordering; `user_understanding = -1` is not treated as
+  weak; no reason implies a due date and `score` is the need alone.
 - `test_goal_nodes.py` — per node, stubbed Hermes: clarify loops then exits on the
   max-turns guard; decompose assigns stable ids; personalize tags `materials` vs
   `research` correctly when `search_materials` returns hits vs nothing; `apply_edits`
@@ -570,5 +568,5 @@ chips from real scores. Then, post-commit: mark done (percent 0 → 25, focus pr
 next stage), add, remove, and reopen-a-saved-draft. No horizontal overflow at 375px.
 
 Not built: the research-note banner has no ungrounded milestone to render yet (the research
-tool is still the §9.4 stub), and `calendar_context` is empty until Step 5, so
-`order_rationale` currently cites check-ins only and never a deadline count.
+tool is still the §9.4 stub). `order_rationale` cites check-ins and nothing else — that is
+final, not a gap, now that Step 5 is cut.

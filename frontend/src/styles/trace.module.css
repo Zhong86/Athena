@@ -1,0 +1,145 @@
+/* The expandable "what Αθηνα actually did" timeline under a session row.
+   Fed by sessions.payload.trace, which agent/hermes.py folds out of the
+   Hermes Runs SSE stream. Static markup -- no live streaming here. */
+
+.wrap {
+  margin: 8px 0 10px;
+  /* above .rowLink's full-row click overlay, or expanding would open the row */
+  position: relative;
+  z-index: 1;
+}
+
+.toggle {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 3px 8px;
+  margin-left: -8px;
+  border-radius: 7px;
+  list-style: none;
+  user-select: none;
+}
+
+.toggle::-webkit-details-marker {
+  display: none;
+}
+
+.toggle::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+
+.wrap[open] .toggle::before {
+  transform: rotate(90deg);
+}
+
+.toggle:hover {
+  background: var(--indigo-soft);
+  color: var(--ink);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 1px;
+}
+
+.steps {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0 0 0 5px;
+  /* the timeline spine */
+  border-left: 1px solid var(--line);
+}
+
+.step {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0 7px 14px;
+  align-items: flex-start;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  /* nudged to sit on the first line of text, not the top of the box */
+  margin: 6px 0 0 -18px;
+  outline: 3px solid var(--bg);
+}
+
+.think {
+  background: var(--indigo);
+}
+.tool {
+  background: var(--ink-soft);
+}
+.sub {
+  background: var(--sage);
+}
+.bad {
+  background: var(--coral);
+}
+
+.body {
+  min-width: 0;
+  flex: 1;
+}
+
+.note {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.arg,
+.output,
+.errorText {
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  /* previews arrive pre-truncated at 500 chars, but a long unbroken token
+     (a URL, a path) would still push the row wide */
+  overflow-wrap: anywhere;
+}
+
+.arg {
+  color: var(--ink-soft);
+}
+
+.output {
+  color: var(--ink-soft);
+  margin: 3px 0 0;
+}
+
+.errorText {
+  color: var(--coral);
+  margin: 3px 0 0;
+}
+
+.duration {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-left: auto;
+  flex-shrink: 0;
+}

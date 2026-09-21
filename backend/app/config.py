@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     api_server_key: str = ""
     hermes_session_key: str = "athena-local"
 
-    # Google OAuth (Calendar scope only, per Step 5)
+    # Google OAuth (Drive scope only -- Drive-backed materials ingest)
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/google/callback"

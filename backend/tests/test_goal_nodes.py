@@ -187,12 +187,11 @@ def test_json_wrapped_in_prose_is_salvaged(hermes_says):
 # --------------------------------------------------------------------------
 
 
-def _state_with_drafts(drafts, topics=(), deadlines=()):
+def _state_with_drafts(drafts, topics=()):
     state = new_state("goal")
     state["clarified_goal"] = "a clear goal"
     state["draft_milestones"] = drafts
     state["materials_context"] = {"topics": list(topics)}
-    state["calendar_context"] = {"deadlines": list(deadlines)}
     return state
 
 

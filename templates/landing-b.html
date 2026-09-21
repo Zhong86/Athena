@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landing — B, Indigo band</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --indigo-wash: #F3F4FE;
+    --indigo-line: #D8DCFB;
+    --indigo-deep: #3F4FD4;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+    --amber-soft: #FBF2DA;
+    --amber-ink: #9A7B14;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  a{ color:inherit; text-decoration:none; }
+
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 28px; }
+
+  /* ===== Full-bleed indigo hero — the same chrome the nav rail wears ===== */
+  .hero{
+    background:var(--indigo);
+    color:#fff;
+    position:relative;
+    overflow:hidden;
+  }
+  /* Faint concentric rings, bottom-right: a nod to the progress rings used
+     on every goal row, at poster scale. */
+  .hero::after{
+    content:""; position:absolute; right:-160px; bottom:-320px;
+    width:760px; height:760px; border-radius:50%;
+    background:
+      radial-gradient(circle, transparent 0 39%, rgb(255 255 255 / 7%) 39% 40%, transparent 40%),
+      radial-gradient(circle, transparent 0 59%, rgb(255 255 255 / 6%) 59% 60%, transparent 60%),
+      radial-gradient(circle, transparent 0 79%, rgb(255 255 255 / 5%) 79% 80%, transparent 80%);
+    pointer-events:none;
+  }
+  .hero-grid{
+    position:relative; z-index:1;
+    display:grid; grid-template-columns:1.15fr .85fr; gap:56px; align-items:center;
+    padding:92px 0 100px;
+  }
+
+  .wordmark{
+    display:flex; align-items:center; gap:10px;
+    font-family:'Fraunces',serif; font-size:21px; font-weight:600;
+    margin-bottom:44px;
+  }
+  .wordmark .m{
+    width:32px; height:32px; border-radius:9px; background:#fff; color:var(--indigo-deep);
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+  }
+
+  h1{
+    font-family:'Fraunces',serif; font-weight:500;
+    font-size:clamp(36px,5.2vw,58px); line-height:1.08; letter-spacing:-.025em;
+    margin:0 0 22px; max-width:15ch;
+  }
+  h1 em{ font-style:italic; color:#FFE9B8; }
+
+  .lede{ font-size:17px; line-height:1.65; color:rgb(255 255 255 / 82%); margin:0; max-width:46ch; }
+
+  .actions{ display:flex; flex-wrap:wrap; gap:12px; margin-top:34px; }
+  .btn{ font-size:14px; font-weight:600; padding:13px 24px; border-radius:10px; background:#fff; color:var(--indigo-deep); }
+  .btn.ghost{ background:transparent; color:#fff; border:1px solid rgb(255 255 255 / 45%); }
+
+  /* Hero aside: the loop, as a stacked card */
+  .loopcard{
+    background:rgb(255 255 255 / 10%);
+    border:1px solid rgb(255 255 255 / 22%);
+    border-radius:18px; padding:8px 22px 14px;
+    backdrop-filter:blur(2px);
+  }
+  .loopcard h2{
+    font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+    color:rgb(255 255 255 / 70%); margin:20px 0 4px;
+  }
+  .loopcard ol{ list-style:none; margin:0; padding:0; }
+  .loopcard li{ padding:15px 0; border-bottom:1px solid rgb(255 255 255 / 16%); display:flex; gap:14px; }
+  .loopcard li:last-child{ border-bottom:none; }
+  .loopcard .n{
+    font-family:'Fraunces',serif; font-size:12.5px; font-weight:600;
+    color:rgb(255 255 255 / 60%); padding-top:2px; flex-shrink:0;
+  }
+  .loopcard .t{ font-size:14px; font-weight:600; margin:0 0 3px; }
+  .loopcard .d{ font-size:12.5px; line-height:1.5; color:rgb(255 255 255 / 72%); margin:0; }
+
+  /* ===== Features ===== */
+  .block{ padding:84px 0 0; }
+  .head{ margin-bottom:34px; }
+  .head p{
+    font-size:11.5px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--indigo); margin:0 0 10px;
+  }
+  .head h2{
+    font-family:'Fraunces',serif; font-size:clamp(24px,3vw,32px); font-weight:500;
+    letter-spacing:-.015em; margin:0; max-width:22ch;
+  }
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:18px; list-style:none; margin:0; padding:0;
+  }
+  .card{
+    display:flex; flex-direction:column; height:100%; position:relative;
+    background:var(--surface); border:1px solid var(--line); border-radius:18px;
+    padding:28px 26px 24px; overflow:hidden;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  /* A colour bar along the top edge is the whole identity of the card —
+     no icon chip needed. */
+  .card::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:4px; background:var(--accent);
+  }
+  .card:hover{ border-color:var(--accent); box-shadow:0 10px 30px rgb(28 28 30 / 7%); }
+  .card h3{
+    font-family:'Fraunces',serif; font-size:20px; font-weight:500;
+    letter-spacing:-.01em; margin:0 0 10px;
+  }
+  .card p{ font-size:13.5px; line-height:1.62; color:var(--ink-soft); margin:0 0 20px; }
+  .more{ margin-top:auto; font-size:12.5px; font-weight:600; color:var(--accent); }
+
+  /* ===== Closing ===== */
+  .note{ margin:84px 0 96px; padding-top:34px; border-top:1px solid var(--line); text-align:center; }
+  .note p{
+    font-family:'Fraunces',serif; font-size:clamp(18px,2.2vw,24px); font-weight:500;
+    font-style:italic; line-height:1.5; margin:0 auto; max-width:38ch; color:var(--ink);
+  }
+  .note small{ display:block; margin-top:16px; font-family:'Inter',sans-serif; font-style:normal; font-size:13.5px; color:var(--ink-soft); }
+
+  @media (max-width:880px){
+    .hero-grid{ grid-template-columns:1fr; gap:40px; padding:64px 0 72px; }
+    .lede{ max-width:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="wordmark"><span class="m">Α</span> Αθηνα</div>
+        <h1>Your own material, <em>actually</em> understood.</h1>
+        <p class="lede">
+          Αθηνα takes the slides, notes and readings you were going to study anyway,
+          sorts them into topics, and keeps a running score of what you understand —
+          then uses that score to decide what is worth your attention next.
+        </p>
+        <div class="actions">
+          <a class="btn" href="#">Open the dashboard</a>
+          <a class="btn ghost" href="#">Upload material</a>
+        </div>
+      </div>
+
+      <aside class="loopcard">
+        <h2>The loop</h2>
+        <ol>
+          <li><span class="n">01</span><div><p class="t">Material goes in</p><p class="d">Files and pasted text are chunked and sorted into topics.</p></div></li>
+          <li><span class="n">02</span><div><p class="t">Understanding is scored</p><p class="d">Quizzes and chat move each topic's score up or down.</p></div></li>
+          <li><span class="n">03</span><div><p class="t">The roadmap reorders</p><p class="d">Weak topics rise; your goal's focus follows them.</p></div></li>
+          <li><span class="n">04</span><div><p class="t">Αθηνα checks back</p><p class="d">Scheduled runs revisit the gaps and log what they found.</p></div></li>
+        </ol>
+      </aside>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="block">
+    <div class="head">
+      <p>What it does</p>
+      <h2>Six places to work, one shared picture of what you know.</h2>
+    </div>
+
+    <ul class="grid">
+      <li><a class="card" href="#" style="--accent:var(--indigo)">
+        <h3>Goals</h3>
+        <p>Say what you want to learn and Αθηνα drafts a roadmap for it — milestones in the order they should be taken, each tied to a topic. Every goal carries a percent done and a current focus.</p>
+        <span class="more">Open Goals →</span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--coral)">
+        <h3>Materials</h3>
+        <p>Upload slides, notes and readings, or paste text straight in. Each file is split into chunks, tagged into topics, and given an understanding score so you can see where you actually stand.</p>
+        <span class="more">Open Materials →</span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--sage)">
+        <h3>Sessions</h3>
+        <p>Chat with Αθηνα about anything in your material. It answers from your own chunks rather than from thin air, and what it notices in the conversation feeds your topic scores.</p>
+        <span class="more">Open Sessions →</span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--amber-ink)">
+        <h3>Quizzes</h3>
+        <p>Quizzes are generated from a topic you have material for. Answers are graded against the source chunks, and the result is recorded as evidence behind that topic's score.</p>
+        <span class="more">Open Quizzes →</span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--indigo-deep)">
+        <h3>Knowledge-Sync</h3>
+        <p>The log of what Αθηνα did without being asked — scheduled runs across your material and goals, and the actions it took off the back of them.</p>
+        <span class="more">Open Knowledge-Sync →</span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--coral)">
+        <h3>Dashboard</h3>
+        <p>The one screen for today: goals still in progress, the last check-in Αθηνα made, and the weak topics that are shaping what it thinks you should work on.</p>
+        <span class="more">Open Dashboard →</span>
+      </a></li>
+    </ul>
+  </section>
+
+  <div class="note">
+    <p>“Every topic, quiz question and roadmap step comes from material you uploaded yourself.”
+      <small>So the score Αθηνα keeps is a score of your syllabus — not someone else's.</small>
+    </p>
+  </div>
+
+</main>
+
+</body>
+</html>

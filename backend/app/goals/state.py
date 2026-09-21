@@ -67,7 +67,6 @@ class RoadmapState(TypedDict):
 
     # step 2: decompose + personalize
     materials_context: NotRequired[dict]
-    calendar_context: NotRequired[dict]
     decomposition_source: NotRequired[Literal["materials", "research", "mixed"]]
     draft_milestones: NotRequired[list[Milestone]]
 

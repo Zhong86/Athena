@@ -2,8 +2,8 @@
 
 Per milestone: try to ground it in uploaded Materials; if nothing correlates,
 take the research branch instead of forcing a link. Then reorder the whole list
-against weak-topic x near-deadline signal using `app.ranking` -- the same
-function Step 7's Dashboard Priority Feed calls, not a second ranker.
+against weak-topic signal using `app.ranking` -- the same function Step 7's
+Dashboard Priority Feed calls, not a second ranker.
 
 Everything user-visible that this node writes has to be traceable to a signal it
 actually read. That is the feature: the student can see why a milestone moved.
@@ -13,7 +13,6 @@ import logging
 from typing import Any
 
 from app.goals import research
-from app.goals.context import deadlines_from
 from app.goals.llm import LLMUnavailable, ask_json
 from app.goals.state import Milestone, RoadmapState, format_effort
 from app.materials.search import search_materials
@@ -92,10 +91,6 @@ def _evidence(
             f"{'no signal yet' if signal.understanding < 0 else f'{signal.understanding}/100'},"
             f" band {signal.band})"
         )
-        if signal.deadline:
-            lines.append(
-                f"- Deadline: {signal.deadline.title}, in {signal.deadline.days_until} days"
-            )
     if chunk_count:
         lines.append(f"- Uploaded material: {chunk_count} chunks matched this milestone")
     else:
@@ -111,8 +106,7 @@ def personalize_decomposition(state: RoadmapState) -> dict[str, Any]:
         return {"draft_milestones": [], "status": "awaiting_approval"}
 
     topics = (state.get("materials_context") or {}).get("topics", [])
-    deadlines = deadlines_from(state.get("calendar_context"))
-    signals = rank_topics(topics, deadlines)
+    signals = rank_topics(topics)
     by_topic = {s.topic_id: s for s in signals}
 
     # 1-3: ground each milestone, or branch to research.

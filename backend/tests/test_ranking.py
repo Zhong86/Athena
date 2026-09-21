@@ -1,6 +1,6 @@
 """The shared ranker. Step 7's Dashboard depends on these same guarantees."""
 
-from app.ranking import Deadline, band, match_deadline, rank_keyed, rank_topics
+from app.ranking import band, rank_keyed, rank_topics
 
 
 def topic(id_: int, name: str, understanding: int) -> dict:
@@ -16,7 +16,7 @@ def test_bands_match_the_frontend_thresholds():
     assert band(70) == "strong"
 
 
-def test_weak_outranks_strong_without_deadlines():
+def test_weak_outranks_strong():
     ranked = rank_topics([topic(1, "Entropy", 20), topic(2, "Heat transfer", 90)])
     assert [s.topic_name for s in ranked] == ["Entropy", "Heat transfer"]
 
@@ -32,66 +32,19 @@ def test_unscored_is_not_treated_as_weak():
     assert "no check-in signal yet" in ranked[1].reason
 
 
-def test_empty_calendar_is_a_no_op():
-    """Step 5 is not built, so this is the shape every call has today."""
-    with_none = rank_topics([topic(1, "Entropy", 20), topic(2, "Cycles", 30)])
-    with_empty = rank_topics([topic(1, "Entropy", 20), topic(2, "Cycles", 30)], [])
-    assert [s.score for s in with_none] == [s.score for s in with_empty]
-    assert all(s.deadline is None for s in with_none)
-    # No invented dates in the copy.
-    assert all("due" not in s.reason for s in with_none)
-
-
-def test_near_deadline_moves_a_topic_up():
-    deadlines = [Deadline(title="Titration lab", due_at="2026-09-24", days_until=3)]
+def test_reasons_cite_only_the_check_in_signal():
+    """Deadline ranking is cut, so no reason may imply a due date."""
     ranked = rank_topics(
-        [topic(1, "Cycles", 35), topic(2, "Titration", 38)], deadlines
+        [topic(1, "Entropy", 20), topic(2, "Cycles", 30), topic(3, "Second law", -1)]
     )
-    assert ranked[0].topic_name == "Titration"
-    assert "due in 3 days" in ranked[0].reason
+    assert all("due" not in s.reason for s in ranked)
+    assert all(set(s.evidence) == {"need"} for s in ranked)
 
 
-def test_deadline_cannot_promote_a_strong_topic_over_a_weak_one():
-    deadlines = [Deadline(title="Heat transfer quiz", due_at="2026-09-22", days_until=1)]
-    ranked = rank_topics(
-        [topic(1, "Heat transfer", 95), topic(2, "Entropy", 10)], deadlines
-    )
-    assert ranked[0].topic_name == "Entropy"
-
-
-def test_overdue_is_maximally_urgent():
-    ranked = rank_topics(
-        [topic(1, "Entropy", 50)],
-        [Deadline(title="Entropy set", due_at="2026-09-18", days_until=-3)],
-    )
-    assert "was due 3d ago" in ranked[0].reason
-
-
-def test_distant_deadline_exerts_no_pressure():
-    far = rank_topics(
-        [topic(1, "Entropy", 50)],
-        [Deadline(title="Entropy set", due_at="2026-12-01", days_until=60)],
-    )
-    none = rank_topics([topic(1, "Entropy", 50)])
-    assert far[0].score == none[0].score
-
-
-def test_match_deadline_substring_and_fuzzy():
-    deadlines = [
-        Deadline(title="Week 4 entropy problem set", due_at="x", days_until=5),
-        Deadline(title="Heat-transfer lab", due_at="x", days_until=2),
-    ]
-    assert match_deadline("Entropy", deadlines).days_until == 5
-    assert match_deadline("Heat transfer", deadlines).days_until == 2
-    assert match_deadline("Quantum tunnelling", deadlines) is None
-
-
-def test_match_deadline_picks_the_nearest_of_several():
-    deadlines = [
-        Deadline(title="Entropy midterm", due_at="x", days_until=9),
-        Deadline(title="Entropy quiz", due_at="x", days_until=2),
-    ]
-    assert match_deadline("Entropy", deadlines).title == "Entropy quiz"
+def test_score_is_the_need_alone():
+    ranked = rank_topics([topic(1, "Entropy", 20)])
+    assert ranked[0].score == 0.8
+    assert ranked[0].evidence == {"need": 0.8}
 
 
 def test_rank_keyed_carries_the_reason_of_the_topic_that_moved_it():

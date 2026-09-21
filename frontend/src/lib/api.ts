@@ -5,11 +5,34 @@ export type SessionType = "chat" | "quiz" | "cron" | "agent_action";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string; at?: string };
 
+/**
+ * One step of a Hermes run, as folded by `agent/hermes.py`. Persisted with the
+ * session rather than streamed: the gateway's SSE stream is live-only, and
+ * Knowledge-Sync renders on the server from what we stored.
+ *
+ * `note` is Hermes' own mid-run commentary (`message.interim`). Token-level
+ * deltas are dropped on the backend -- they only repeat the final summary.
+ */
+export type TraceEntry =
+  | { kind: "note"; at: string; text: string }
+  | {
+      kind: "tool";
+      at: string;
+      tool: string;
+      /** Argument gist. The gateway truncates these to 500 chars. */
+      input?: string | null;
+      output?: string | null;
+      status?: "running" | "ok" | "error";
+      duration?: number | null;
+    }
+  | { kind: "subagent"; at: string; status?: string; summary?: string; duration?: number | null }
+  | { kind: "error"; at: string; text: string };
+
 export type Session = {
   id: number;
   type: SessionType;
   started_at: string;
-  payload: { messages?: ChatMessage[] } | null;
+  payload: { messages?: ChatMessage[]; trace?: TraceEntry[] } | null;
   summary: string | null;
   /** User-set override; null means fall back to the derived title. */
   title: string | null;
@@ -749,7 +772,7 @@ export function goalPill(goal: GoalCard | GoalDetail): {
   return { label: "Active", tone: "active" };
 }
 
-/** "Oct 3" — a due date is a day, and the year is noise on a study deadline. */
+/** "Oct 3" — a due date is a day, and the year is noise within one term. */
 export function formatDue(iso: string | null): string | null {
   if (!iso) return null;
   const date = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
@@ -757,7 +780,7 @@ export function formatDue(iso: string | null): string | null {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** The line under a goal's title: course, deadline, and what is in focus. */
+/** The line under a goal's title: course, due date, and what is in focus. */
 export function goalSubtitle(goal: GoalCard): string[] {
   const parts: string[] = [];
   parts.push(goal.course_code ?? (goal.category === "career" ? "Career goal" : "Academic goal"));
@@ -859,6 +882,16 @@ export function understandingDelta(event: UnderstandingEvent): {
 
 export function messagesOf(session: Session): ChatMessage[] {
   return session.payload?.messages ?? [];
+}
+
+export function traceOf(session: Session): TraceEntry[] {
+  return session.payload?.trace ?? [];
+}
+
+/** "2.4s" / "310ms" / "" when the gateway sent no duration. */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null) return "";
+  return seconds < 1 ? `${Math.round(seconds * 1000)}ms` : `${seconds.toFixed(1)}s`;
 }
 
 /**

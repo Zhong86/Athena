@@ -26,7 +26,7 @@ const EXAMPLES = [
 ];
 
 const SOURCE_COPY: Record<string, string> = {
-  materials: "split using what is already in Materials, then reordered against your topic scores and deadlines",
+  materials: "split using what is already in Materials, then reordered against your topic scores",
   research: "built without your Materials — nothing you have uploaded covers this yet",
   mixed: "grounded in Materials where it could be, researched where it could not",
 };
@@ -211,7 +211,7 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
             <div className={styles.stageHead}>
               <h1>What are you working toward?</h1>
               <p>
-                A sentence is enough. Αθηνα will ask if it needs a deadline or a scope,
+                A sentence is enough. Αθηνα will ask if it needs a due date or a scope,
                 then build the roadmap from your Materials.
               </p>
             </div>

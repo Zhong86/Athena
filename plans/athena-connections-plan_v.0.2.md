@@ -1,9 +1,12 @@
 # Connections — schema plan
 
 Scope: one table family that owns **every external account or site Αθηνα can reach** —
-Google (Calendar + Drive), Notion, the school website, and any allowlisted research
-domain. Replaces the "where does the Drive refresh token live" open item in the
-materials plan, and the ad-hoc `general.google_calendar_*` toggles sketched in Step 9.
+Google (Drive), Notion, the school website, and any allowlisted research domain.
+Replaces the "where does the Drive refresh token live" open item in the materials plan,
+and the ad-hoc connector toggles sketched in Step 9.
+
+Calendar was in this scope and was cut with Step 5 (Zhong, 2026-09-21): Athena does not
+track the student's deadlines, so there is no `calendar.read` capability and no sync.
 
 Locked: `settings` stays flat key/value for *preferences*. Anything with a credential,
 an expiry, a sync clock, or a connect/disconnect lifecycle is a connection, not a
@@ -79,7 +82,6 @@ CREATE INDEX idx_connections_expiry ON connections (expires_at)
 CREATE TABLE connection_capabilities (
     connection_id INTEGER NOT NULL REFERENCES connections (id) ON DELETE CASCADE,
     capability    TEXT NOT NULL CHECK (capability IN (
-        'calendar.read', 'calendar.write',
         'drive.read',
         'notion.read',
         'web.read'
@@ -89,18 +91,16 @@ CREATE TABLE connection_capabilities (
 );
 ```
 
-`scopes` and `connection_capabilities` look redundant and are not. Google grants Drive
-and Calendar in **one consent screen**, so `scopes` will list both the moment the user
-connects. `connection_capabilities` is where the user then says "yes to Calendar, not
-yet to Drive" — and where the nested Calendar-write sub-toggle from `settings.html`
-actually lives. Granted ≠ permitted. A capability row may exist and be disabled; a
-capability whose scope was never granted must not exist at all.
+`scopes` and `connection_capabilities` look redundant and are not. `scopes` is what the
+provider granted; `connection_capabilities` is what the user has since permitted. A
+Notion token grants read across every page the integration can see, and the user may
+still switch Athena's use of it off from Settings without revoking the token. Granted ≠
+permitted. A capability row may exist and be disabled; a capability whose scope was never
+granted must not exist at all.
 
 ### Provenance columns on existing tables
 
 ```sql
-ALTER TABLE calendar_events ADD COLUMN connection_id INTEGER
-    REFERENCES connections (id) ON DELETE SET NULL;
 ALTER TABLE source_files ADD COLUMN connection_id INTEGER
     REFERENCES connections (id) ON DELETE SET NULL;
 ```
@@ -113,10 +113,6 @@ would silently wipe half the materials index on a disconnect click, and with it 
 `user_understanding` score derived from it. Delete-on-disconnect, if ever wanted, is an
 explicit second action with its own confirmation.
 
-`calendar_events.source` (`'google'|'portal'`) from 001 stays as the cheap discriminator;
-`connection_id` is the precise pointer. Redundant but harmless, and rebuilding the CHECK
-on that table is not worth it.
-
 ---
 
 ## 3. The seeded rows
@@ -128,7 +124,7 @@ writes a `connected` row immediately — there is nothing to authenticate.
 
 | slug | provider | auth_type | capabilities |
 |---|---|---|---|
-| `google` | google | oauth2 | `calendar.read`, `calendar.write`, `drive.read` |
+| `google` | google | oauth2 | `drive.read` |
 | `notion` | notion | token | `notion.read` |
 | `web:<host>` | web | none | `web.read` |
 
@@ -189,22 +185,10 @@ How a route gets created, cheapest first:
    course pages proposes routes for confirmation. Nice, not required — and it degrades
    to (1) if the portal needs a login the agent does not have.
 
-The payoff is a real cross-service moment for Step 7's priority feed: a Calendar deadline
-× the topic's `user_understanding` × the stored route becomes *"Problem Set 4 due in 2
-days, your Entropy score is 28 — here's the page"* with a working link. That is the
-Materials × Calendar × portal routing the judging criteria reward, built from a `TEXT`
-column rather than from browser automation.
-
-### Deadlines in v0.1: manual entry via Google Calendar
-
-**Zhong's portal has no iCal feed** (confirmed 2026-09-21), so there is no free deadline
-source. For v0.1 the student enters deadlines into Google Calendar themselves — five
-minutes of typing per semester, zero portal auth, and it flows through the Calendar sync
-being built in Step 5 regardless.
-
-`calendar_events` does not care whether a row came from a scrape or a human. The demo is
-identical either way: Athena sees a deadline, cross-references a weak topic, surfaces the
-route. Portal scraping in v0.2 *replaces* manual entry; nothing depends on it.
+The payoff is a real cross-service moment for Step 7's priority feed: the topic's
+`user_understanding` × the stored route becomes *"your Entropy score is 28 — here's the
+submission page"* with a working link. That is the Materials × portal routing the judging
+criteria reward, built from a `TEXT` column rather than from browser automation.
 
 ---
 
@@ -217,7 +201,7 @@ have to be rediscovered, and so v0.1 does not accidentally build half of it.
 ### What v0.2 adds, and what it does not
 
 v0.1 already gets the student to the right page, in their own browser, signed in. v0.2
-adds only: **scraping** (deadlines and assignment listings without manual entry) and
+adds only: **scraping** (assignment listings and course pages without manual entry) and
 optionally **form-fill up to the submit button**.
 
 It does not add auto-submit. The split to keep, at any automation level: *agent owns the
@@ -244,7 +228,7 @@ themselves. So v0.2's real value is scraping alone, weighed against:
 - **A cached session is broader than the password it replaces.** A live authenticated
   browser profile is an *unscoped* session to the whole Google identity — Gmail, Drive,
   account settings — with no consent screen and no per-scope revocation. This entire table
-  exists to request `drive.read` and `calendar.read` and nothing more; a stored profile
+  exists to request `drive.read` and nothing more; a stored profile
   routes around that.
 
 ### Rejected: routing the password through Hermes (Zhong, 2026-09-21)
@@ -322,7 +306,7 @@ being forgotten:
 | method | path | purpose |
 |---|---|---|
 | `GET` | `/connections` | Settings + Knowledge-Sync list: provider, status, account, capabilities, last sync, last error |
-| `GET` | `/connections/google/authorize` | → 302 to Google consent (Calendar + Drive scopes, `access_type=offline`) |
+| `GET` | `/connections/google/authorize` | → 302 to Google consent (Drive scope, `access_type=offline`) |
 | `GET` | `/auth/google/callback` | existing redirect URI from `.env`; exchanges code, upserts the `google` row |
 | `PUT` | `/connections/{slug}/capabilities/{capability}` | `{enabled: bool}` — the Settings toggles |
 | `DELETE` | `/connections/{slug}` | revoke + clear |
@@ -343,7 +327,7 @@ def require(slug: str, capability: str) -> Credentials
 
 Raises if the connection is missing, `status != 'connected'`, or the capability row is
 absent/disabled; refreshes an expired access token in place; otherwise returns decrypted
-credentials. Every outbound call — Drive fetch, Calendar sync, Notion read, research-tool
+credentials. Every outbound call — Drive fetch, Notion read, research-tool
 fetch — goes through it.
 
 This is what makes the Settings toggles real rather than decorative, which Step 9's done
@@ -380,8 +364,7 @@ Steps 1–3 need no external service and can land immediately.
 10. `auth_type='browser_session'` + the `web.write` capability, each behind its own toggle.
 11. `POST /connections/portal/login` — Playwright, password in-memory only, encrypted
     cookie jar out. Never touches `sessions`, never touches a prompt.
-12. Portal scraping → `calendar_events` with `source='portal'`, replacing manual entry.
-13. Form-fill up to the submit button. The student always clicks submit.
+12. Form-fill up to the submit button. The student always clicks submit.
 
 Answer the acceptable-use question in §4b before starting 11.
 
@@ -389,8 +372,9 @@ Answer the acceptable-use question in §4b before starting 11.
 
 ## Open items
 
-- ~~**Portal iCal feed**~~ — resolved: there isn't one. v0.1 deadlines are entered by hand
-  into Google Calendar (§4).
+- ~~**Portal iCal feed**~~ — resolved twice over: there isn't one, and deadline tracking
+  was cut entirely with Step 5 (Zhong, 2026-09-21). Athena stores no due dates but the
+  one the student types onto a goal.
 - **Portal route discovery** — v0.1 ships student-pasted routes only. Athena proposing
   routes by crawling is v0.2, since it needs a login.
 - **University acceptable-use policy on credential sharing** — blocks v0.2 step 11, not

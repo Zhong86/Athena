@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landing — A, Quiet centre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,400;9..144,0,500;9..144,0,600;9..144,1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #1C1C1E;
+    --ink-soft: #6B6B66;
+    --line: #E4E2DB;
+    --indigo: #5B6EF5;
+    --indigo-soft: #EEF0FE;
+    --indigo-wash: #F3F4FE;
+    --indigo-line: #D8DCFB;
+    --indigo-deep: #3F4FD4;
+    --coral: #F2703D;
+    --coral-soft: #FDECE4;
+    --sage: #7BAE7F;
+    --sage-soft: #EEF5EE;
+    --amber-soft: #FBF2DA;
+    --amber-ink: #9A7B14;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  a{ color:inherit; text-decoration:none; }
+
+  .page{ max-width:1060px; margin:0 auto; padding:0 24px 96px; }
+
+  /* ===== Hero ===== */
+  .hero{ position:relative; padding:96px 0 76px; text-align:center; overflow:hidden; }
+  .hero::before{
+    content:""; position:absolute; top:-180px; left:50%;
+    width:720px; height:480px; transform:translateX(-50%);
+    background:radial-gradient(ellipse at center, rgb(91 110 245 / 13%) 0%, rgb(91 110 245 / 0%) 65%);
+  }
+  .hero-inner{ position:relative; }
+
+  .mark{
+    width:64px; height:64px; margin:0 auto 20px;
+    border-radius:18px; background:var(--indigo);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-family:'Fraunces',serif; font-size:30px; font-weight:500;
+  }
+
+  .eyebrow{
+    font-size:11.5px; font-weight:600; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--indigo); margin:0 0 18px;
+  }
+
+  h1{
+    font-family:'Fraunces',serif; font-weight:500;
+    font-size:clamp(34px,5.4vw,54px); line-height:1.12; letter-spacing:-.02em;
+    margin:0 auto 20px; max-width:17ch;
+  }
+  h1 em{ font-style:italic; color:var(--indigo); }
+
+  .lede{
+    font-size:clamp(15px,1.5vw,17.5px); line-height:1.65;
+    color:var(--ink-soft); margin:0 auto; max-width:56ch;
+  }
+
+  .actions{ display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:34px; }
+  .btn{
+    font-size:14px; font-weight:600; background:var(--indigo); color:#fff;
+    padding:12px 22px; border-radius:10px;
+  }
+  .btn.ghost{ background:transparent; color:var(--ink-soft); border:1px solid var(--line); }
+
+  /* ===== Sections ===== */
+  .block{ margin-top:76px; }
+  .head{ display:flex; align-items:center; gap:16px; margin-bottom:26px; }
+  .head h2{
+    font-family:'Fraunces',serif; font-size:22px; font-weight:500;
+    letter-spacing:-.01em; margin:0; flex-shrink:0;
+  }
+  .rule{ flex:1; height:1px; background:var(--line); }
+
+  /* ===== Feature cards ===== */
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+    gap:16px; list-style:none; margin:0; padding:0;
+  }
+  .card{
+    display:flex; flex-direction:column; height:100%;
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:26px 24px 22px;
+    transition:border-color .15s, box-shadow .15s, transform .15s;
+  }
+  .card:hover{
+    border-color:var(--accent); transform:translateY(-2px);
+    box-shadow:0 8px 24px rgb(28 28 30 / 6%);
+  }
+  .glyph{
+    width:38px; height:38px; border-radius:11px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; background:var(--accent-soft); color:var(--accent);
+    margin-bottom:18px;
+  }
+  .card h3{ font-size:15.5px; font-weight:600; margin:0 0 8px; }
+  .card p{ font-size:13.5px; line-height:1.6; color:var(--ink-soft); margin:0 0 18px; }
+  .more{ margin-top:auto; font-size:12.5px; font-weight:600; color:var(--accent); }
+  .more i{ font-style:normal; display:inline-block; transition:transform .15s; }
+  .card:hover .more i{ transform:translateX(3px); }
+
+  /* ===== Loop ===== */
+  .loop{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    list-style:none; margin:0; padding:0;
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:16px; overflow:hidden;
+  }
+  .step{ padding:24px 24px 26px; border-top:1px solid var(--line); }
+  .step:first-child{ border-top:none; }
+  .num{
+    font-family:'Fraunces',serif; font-size:13px; font-weight:600;
+    color:var(--indigo); display:block; margin-bottom:10px;
+  }
+  .step h3{ font-size:14.5px; font-weight:600; margin:0 0 6px; }
+  .step p{ font-size:13px; line-height:1.55; color:var(--ink-soft); margin:0; }
+  @media (min-width:720px){
+    .step{ border-top:none; border-left:1px solid var(--line); }
+    .step:first-child{ border-left:none; }
+  }
+
+  /* ===== Closing note ===== */
+  .note{
+    margin-top:76px; padding:30px 32px; text-align:center;
+    background:var(--indigo-wash); border:1px solid var(--indigo-line); border-radius:16px;
+  }
+  .note p{ font-size:14px; line-height:1.65; color:var(--ink-soft); margin:0 auto; max-width:60ch; }
+  .note strong{ color:var(--ink); font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="mark">Α</div>
+      <p class="eyebrow">Αθηνα</p>
+      <h1>A study agent that reads <em>your</em> material.</h1>
+      <p class="lede">
+        Give Αθηνα the slides, notes and readings you were going to study anyway.
+        It sorts them into topics, keeps a running score of what you understand,
+        and uses that score to decide what is worth your attention next.
+      </p>
+      <div class="actions">
+        <a class="btn" href="#">Open the dashboard</a>
+        <a class="btn ghost" href="#">Upload material</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="head"><h2>What it does</h2><span class="rule"></span></div>
+    <ul class="grid">
+      <li><a class="card" href="#" style="--accent:var(--indigo);--accent-soft:var(--indigo-soft)">
+        <span class="glyph">◎</span>
+        <h3>Goals</h3>
+        <p>Say what you want to learn and Αθηνα drafts a roadmap for it — milestones in the order they should be taken, each tied to a topic. Every goal carries a percent done and a current focus.</p>
+        <span class="more">Open Goals <i>→</i></span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--coral);--accent-soft:var(--coral-soft)">
+        <span class="glyph">▤</span>
+        <h3>Materials</h3>
+        <p>Upload slides, notes and readings, or paste text straight in. Each file is split into chunks, tagged into topics, and given an understanding score so you can see where you actually stand.</p>
+        <span class="more">Open Materials <i>→</i></span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--sage);--accent-soft:var(--sage-soft)">
+        <span class="glyph">◍</span>
+        <h3>Sessions</h3>
+        <p>Chat with Αθηνα about anything in your material. It answers from your own chunks rather than from thin air, and what it notices in the conversation feeds your topic scores.</p>
+        <span class="more">Open Sessions <i>→</i></span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--amber-ink);--accent-soft:var(--amber-soft)">
+        <span class="glyph">✓</span>
+        <h3>Quizzes</h3>
+        <p>Quizzes are generated from a topic you have material for. Answers are graded against the source chunks, and the result is recorded as evidence behind that topic's score.</p>
+        <span class="more">Open Quizzes <i>→</i></span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--indigo-deep);--accent-soft:var(--indigo-wash)">
+        <span class="glyph">↻</span>
+        <h3>Knowledge-Sync</h3>
+        <p>The log of what Αθηνα did without being asked — scheduled runs across your material and goals, and the actions it took off the back of them.</p>
+        <span class="more">Open Knowledge-Sync <i>→</i></span>
+      </a></li>
+
+      <li><a class="card" href="#" style="--accent:var(--coral);--accent-soft:var(--coral-soft)">
+        <span class="glyph">◆</span>
+        <h3>Dashboard</h3>
+        <p>The one screen for today: goals still in progress, the last check-in Αθηνα made, and the weak topics that are shaping what it thinks you should work on.</p>
+        <span class="more">Open Dashboard <i>→</i></span>
+      </a></li>
+    </ul>
+  </section>
+
+  <section class="block">
+    <div class="head"><h2>How the pieces feed each other</h2><span class="rule"></span></div>
+    <ol class="loop">
+      <li class="step">
+        <span class="num">01</span>
+        <h3>Material goes in</h3>
+        <p>Files and pasted text are chunked and sorted into topics automatically.</p>
+      </li>
+      <li class="step">
+        <span class="num">02</span>
+        <h3>Understanding is scored</h3>
+        <p>Quiz results and what surfaces in chat move each topic's score up or down.</p>
+      </li>
+      <li class="step">
+        <span class="num">03</span>
+        <h3>The roadmap reorders</h3>
+        <p>Weak topics rise, and your goal's current focus follows them.</p>
+      </li>
+      <li class="step">
+        <span class="num">04</span>
+        <h3>Αθηνα checks back</h3>
+        <p>Scheduled runs revisit the gaps and record what they found.</p>
+      </li>
+    </ol>
+  </section>
+
+  <div class="note">
+    <p><strong>Nothing here is generic coursework.</strong> Every topic, quiz question and
+    roadmap step comes from material you uploaded yourself — so the score Αθηνα keeps is a
+    score of your syllabus, not someone else's.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

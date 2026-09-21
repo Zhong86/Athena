@@ -16,7 +16,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Αθηνα",
-  description: "A study agent that routes Materials, Calendar and Goal signals.",
+  description: "A study agent that routes Materials and Goal signals.",
 };
 
 export default function RootLayout({

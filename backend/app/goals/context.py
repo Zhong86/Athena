@@ -1,18 +1,15 @@
-"""`materials_context` and `calendar_context` -- loaded before personalization.
+"""`materials_context` -- loaded before personalization.
 
-Both are plain reads, deliberately kept out of the nodes: a node that queries
-SQLite directly cannot be tested without a database, and the spec puts these in
-state precisely so `personalize_decomposition` is a pure function of its inputs.
+A plain read, deliberately kept out of the nodes: a node that queries SQLite
+directly cannot be tested without a database, and the spec puts this in state
+precisely so `personalize_decomposition` is a pure function of its inputs.
+
+`calendar_context` used to sit beside it and was cut with the rest of the
+deadline system (Zhong, 2026-09-21).
 """
 
 import sqlite3
 from typing import Any
-
-from app.ranking import Deadline
-
-# Matches the plan's default: far enough out to catch a midterm, near enough that
-# next semester's events do not reorder this week's work.
-DEADLINE_WINDOW_DAYS = 21
 
 
 def materials_context(conn: sqlite3.Connection) -> dict[str, Any]:
@@ -44,38 +41,3 @@ def materials_context(conn: sqlite3.Connection) -> dict[str, Any]:
             for row in rows
         ]
     }
-
-
-def calendar_context(
-    conn: sqlite3.Connection, *, days: int = DEADLINE_WINDOW_DAYS
-) -> dict[str, Any]:
-    """Deadlines inside the window, as `app.ranking.Deadline` payloads.
-
-    Step 5 (Google Calendar) is not built yet -- there is no `calendar_events`
-    table to read, so this always returns `{"deadlines": []}`. That is a fully
-    supported state, not a degradation to paper over: no deadlines means no
-    reordering pressure and no "due in 3 days" clauses in any reason. Inventing
-    a date to make the copy look richer would put a claim on screen that
-    nothing backs. `conn` and `days` stay in the signature so the call site in
-    `personalize_decomposition` does not change shape when Step 5 lands.
-    """
-    del conn, days
-    return {"deadlines": []}
-
-
-def deadlines_from(context: dict[str, Any] | None) -> list[Deadline]:
-    """State dict -> the dataclass `app.ranking` takes.
-
-    The conversion exists because state has to be JSON-serialisable for the
-    checkpointer, so it cannot hold dataclasses.
-    """
-    if not context:
-        return []
-    return [
-        Deadline(
-            title=item["title"],
-            due_at=item.get("due_at", ""),
-            days_until=int(item.get("days_until", 0)),
-        )
-        for item in context.get("deadlines", [])
-    ]

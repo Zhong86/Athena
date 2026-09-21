@@ -10,13 +10,13 @@ Source of truth: Notion pages under "Hermes - Hackathon Agent" (project hub, App
 
 - Single-user system. No multi-tenancy, no per-student session routing. One fixed `X-Hermes-Session-Key` held server-side alongside Hermes' `API_SERVER_KEY`.
 - Stack: Next.js (frontend) · FastAPI (Python, backend) · LanceDB (chunk embeddings only) · SQLite (everything relational: goals, milestones, settings, session/quiz history) · `bge-small-en-v1.5` or `bge-base-en-v1.5` (embedding model) · Hermes Agent framework (Nous Research) via its `api_server` adapter.
-- External connectors **in MVP scope**: Google OAuth (Calendar **and** Drive scopes), plus agent web access to a user-allowlisted set of sites (the research tool). No Canvas/LMS. Drive and web access are *not* deferred — see Step 3 and Step 6.4 (Zhong, 2026-09-21).
+- External connectors **in MVP scope**: Google OAuth (Drive scope), plus agent web access to a user-allowlisted set of sites (the research tool). No Canvas/LMS. Drive and web access are *not* deferred — see Step 3 and Step 6.4 (Zhong, 2026-09-21).
 - **Materials are Drive-backed, not VPS-backed.** The user's documents stay in their Drive; the VPS stores only the derived index (chunks + embeddings) and a `drive_file_id` pointer. We never keep a second copy of the original file. Local upload/paste remains as a parallel path — it is already built, it needs no OAuth, and it is the safe fallback for the demo.
 - Chunk-first materials model: files → chunks → chunks tagged to topics (MVP: one chunk = one topic, LLM-classified). Topic pages own chunks, not files. A topic's material list is the chunks tagged to it; the topic page shows the distinct source files behind those chunks.
 - Match existing design system exactly for every new page: Fraunces (display) + Inter (UI), CSS vars `--bg --surface --ink --ink-soft --line --indigo --indigo-soft --coral --coral-soft --sage --sage-soft`, sticky "Αθηνα" chat FAB + panel, D2 desktop sub-nav (back arrow replaces top nav) / mobile uses the same rail as a slide-in drawer behind a menu button.
 - Nav destinations: Dashboard · Goal · Materials · Sessions · Quizzes · Knowledge-Sync · Settings. Sessions is **chat only**; quizzes have their own page, and cron findings plus agent actions are one idea ("work Αθηνα did unprompted") under Knowledge-Sync. This replaced the single filtered timeline, and is why mobile dropped M1's bottom tab bar — seven destinations do not fit a tab bar at phone width (Zhong, 2026-09-21).
-- **Versioning:** everything in this plan is **v0.1**, the Sept 30 submission. Portal browser automation — scraping, form-fill, credential handling, session caching — is **v0.2**, deferred until after submission and built only if time allows. It is designed in `athena-connections-plan.md` §4b; do not build fragments of it. v0.1's school-portal story is stored deep links (`portal_routes`) plus hand-entered Google Calendar deadlines, and is complete without automation (Zhong, 2026-09-21).
-- Every feature must visibly derive from cross-service signals (Materials × Calendar, Materials × Goal, etc.) — a feature that doesn't need this routing is an architectural weakness for this hackathon's judging criteria and should be cut or reframed.
+- **Versioning:** everything in this plan is **v0.1**, the Sept 30 submission. Portal browser automation — scraping, form-fill, credential handling, session caching — is **v0.2**, deferred until after submission and built only if time allows. It is designed in `athena-connections-plan.md` §4b; do not build fragments of it. v0.1's school-portal story is stored deep links (`portal_routes`) alone, and is complete without automation (Zhong, 2026-09-21).
+- Every feature must visibly derive from cross-service signals (Materials × Goal, Materials × quiz check-ins, Drive × Materials, etc.) — a feature that doesn't need this routing is an architectural weakness for this hackathon's judging criteria and should be cut or reframed.
 
 ---
 
@@ -44,7 +44,6 @@ Tables (minimum):
 - `milestones` (id, goal_id, title, description, order, status: proposed/approved/edited/rejected, reason, source: materials/research, related_topic_ids, est_effort)
 - `settings` (key, value) — flat key/value, scoped by the page-ownership convention (materials.*, goal.*, general.*). **Preferences only** — nothing with a credential, expiry, or connect/disconnect lifecycle goes here
 - `connections` (id, provider: google/notion/web, slug, status, scopes, encrypted secret, expires_at, last_synced_at, last_error) + `connection_capabilities` (connection_id, capability, enabled) — every external account or site the agent can reach. Full design in `athena-connections-plan.md`
-- `calendar_events` (id, source: google/portal, title, due_at, raw_payload, connection_id) — backend-only, no CRUD UI
 
 **Done when:** migrations run clean, schema matches Milestone/RoadmapState TypedDicts from the Backend Endpoints spec exactly (field names must match — the LangGraph state schema in Step 6 depends on this).
 
@@ -60,7 +59,7 @@ Tables (minimum):
 
 *Items 1–5 are built (commit `85f592c`). Items 6–8 below are the Drive rescope and are the remaining work in this step.*
 
-6. **The `connections` table + Google OAuth land here, not in Step 5.** Drive-backed ingest needs a token before Calendar does, so the connections schema and the OAuth flow (Calendar + Drive scopes requested together, one consent screen) are Step 3 prerequisites. Step 5 then only builds the Calendar *sync*, on top of an already-working token. Design: `athena-connections-plan.md`.
+6. **The `connections` table + Google OAuth land here.** Drive-backed ingest needs a token, so the connections schema and the OAuth flow (Drive scope, one consent screen) are Step 3 prerequisites. Design: `athena-connections-plan.md`.
 7. **Drive as a material source.** A picker lets the user select Drive files/folders; ingest fetches bytes via the Drive API, runs the existing `extract → chunk → tag → embed` pipeline, and stores `drive_file_id` + `drive_modified_at` instead of `stored_path`. The fetched bytes are never written to disk. Retry and re-ingest re-fetch from Drive. Native Google Docs export as `text/plain`; PDFs and images take the existing paths.
 8. **Topic digests.** At the end of ingest, generate a short `summary` + `key_concepts` per touched topic from that topic's chunks. This is the cheap, always-loadable answer to "what is this student learning right now and how well" — the agent reads digests by default and only calls `search_materials` when it needs to ground a claim in the student's actual wording. Without this, every steering decision costs a vector search (Zhong, 2026-09-21).
 
@@ -77,14 +76,13 @@ Tables (minimum):
 
 **Done when:** a quiz round-trip changes a topic's score and the evidence is queryable (which quiz/session caused it, with timestamp).
 
-## Step 5 — Google Calendar sync
+## Step 5 — Google Calendar sync — **CUT** (Zhong, 2026-09-21)
 
-OAuth itself is done in Step 3.6 (Calendar + Drive scopes, one consent screen). This step is only the Calendar half of what that token unlocks.
+Athena does not track the student's tasks or deadlines. Nothing schedules, nothing counts down, and no ranking reads a due date.
 
-1. Sync job (CRON, per Settings spec) pulls upcoming events into `calendar_events`. Zhong's school portal publishes no iCal feed, so in v0.1 coursework deadlines are entered into Google Calendar by hand and arrive through this same sync — `calendar_events` does not care whether a row came from a human or a scrape. Portal scraping (v0.2) later replaces the manual entry; nothing depends on it.
-2. Expose an internal function (not a user-facing endpoint) that returns "deadlines within N days" for use by Dashboard ranking and the Goal roadmap's `personalize_decomposition` node.
+What was removed when this was cut: the `calendar_events` table (created by `001_initial.sql`, dropped by `007_drop_calendar_events.sql`), the deadline half of `app/ranking.py` (`Deadline`, `_urgency`, `match_deadline`, and the "due in N days" reason clauses), and `calendar_context` / `deadlines_from` in `app/goals/context.py`. Ranking is on measured topic weakness alone — see Step 7.1.
 
-**Done when:** connecting a real Google account populates `calendar_events`, and the internal deadline-lookup function returns correct results.
+The step number is kept so the cross-references in Steps 6, 7 and 9 and in the backend plans stay valid. The one date that survives is `goals.due_at`, which the student types in themselves when creating a goal; it is a label on the goal, not a signal.
 
 ## Step 6 — Goal roadmap LangGraph (the centerpiece — build exactly per the Backend Endpoints spec)
 
@@ -92,8 +90,8 @@ This is the most fully-specified part of the Notion spec and should be implement
 
 1. **State schema** — implement `Milestone` and `RoadmapState` TypedDicts exactly as specified (see field list in Step 2). Do this first; every node below reads/writes this shape.
 2. **`clarify_intent`** — takes `raw_goal_input`; if ambiguous (no timeframe, no clear scope), generates `clarifying_questions` and calls `interrupt()`. Loops on itself bounded by a max-turns guard. Outputs `clarified_goal`.
-3. **`decompose_goal`** — LLM call, `clarified_goal` → ordered list of draft milestones (title + description + rough order), no Materials/Calendar context yet.
-4. **`personalize_decomposition`** — for each draft milestone: attempt to ground it against Materials topics via `search_materials`/topic strength scores; if no correlation exists, invoke the research tool for that milestone instead (tag `source: "materials"` vs `"research"`). The research tool is **real web access in MVP**, restricted to the allowlist in General settings ("websites to access") — not a stub and not deferred. Reorder using the same weak-topic-near-deadline logic already implemented for Dashboard's Priority Feed — do not build a second ranking system. Pull `materials_context` and `calendar_context` into state before this node runs.
+3. **`decompose_goal`** — LLM call, `clarified_goal` → ordered list of draft milestones (title + description + rough order), no Materials context yet.
+4. **`personalize_decomposition`** — for each draft milestone: attempt to ground it against Materials topics via `search_materials`/topic strength scores; if no correlation exists, invoke the research tool for that milestone instead (tag `source: "materials"` vs `"research"`). The research tool is **real web access in MVP**, restricted to the allowlist in General settings ("websites to access") — not a stub and not deferred. Reorder using the same weak-topic logic already implemented for Dashboard's Priority Feed — do not build a second ranking system. Pull `materials_context` into state before this node runs.
 5. **`present_for_approval`** — copies `draft_milestones` → `milestones` on first entry, `interrupt()`s with the full list ("show all" pattern from `goal-creation.html`). Resume payload actions: `approve_all`, `reorder(ids_in_order)`, `edit(milestone_id, fields)`, `reject(milestone_id)`.
 6. **`apply_edits`** — deterministic, non-LLM. Applies the resume action to `milestones`, recomputes `order`. Always routes back to `present_for_approval` (no silent-acceptance path).
 7. **`commit_roadmap`** — persists `milestones` to SQLite (`goals`/`milestones` tables), sets `final_roadmap` and `status: "committed"`, returns `goal_id`.
@@ -107,7 +105,7 @@ This is the most fully-specified part of the Notion spec and should be implement
 
 **Goal:** live version of `dashboard.html`.
 
-1. Priority Feed: merge `calendar_events` deadlines with topic `user_understanding` scores using the same weak-topic-near-deadline ranking used in `personalize_decomposition` (Step 6.4) — implement this ranking as one shared function, called from both places.
+1. Priority Feed: rank topics by `user_understanding` — how much work each one needs — using the same weak-topic ranking used in `personalize_decomposition` (Step 6.4). Implement this ranking as one shared function, called from both places. (Deadline-aware ranking was specified here and cut with Step 5.)
 2. Last Check-in card: surface the most recent quiz/session-driven score change with its evidence (from Step 4).
 3. Weak Topic Alert: topics currently below a threshold score.
 4. Cold-start variant: if no quiz/session history exists yet, render the Setup Progress / explanatory empty-state version already mocked up, not an empty container.
@@ -129,14 +127,14 @@ This is the most fully-specified part of the Notion spec and should be implement
 
 - Materials: allow LLM auto-embedding, allow scoring from chat sessions, auto re-quiz on decay, connected Drive sources (list + disconnect).
 - Goal: allow external sources (research tool), milestone auto-reorder without approval.
-- General: the connector section is a view over `connections` + `connection_capabilities`, not over `settings` — Google Calendar access toggle, Calendar write-access sub-toggle (nested), Google Drive access toggle, Notion, websites to access (the research allowlist — gates Step 6.4), plus CRON routine schedule (this one *is* a setting).
+- General: the connector section is a view over `connections` + `connection_capabilities`, not over `settings` — Google Drive access toggle, Notion, websites to access (the research allowlist — gates Step 6.4), plus CRON routine schedule (this one *is* a setting).
 - Explicitly out of scope for MVP: agent tone UI, full memory management, audio/video transcription — do not build UI for these. **Google Drive is in scope** and was moved out of this list on 2026-09-21; Drive is the primary material source, not a deferred storage backend.
 
 **Done when:** every toggle reads/writes real values in the `settings` table and actually gates the corresponding backend behavior (e.g. turning off "scoring from chat sessions" actually stops Step 4.3 from firing).
 
 ## Step 10 — Nav cleanup pass
 
-- Confirm Calendar is removed from the nav on every page (Dashboard, Goal, Materials, Sessions, Settings) — this was flagged as possibly incomplete in the mockups.
+- Confirm Calendar is removed from the nav on every page (Dashboard, Goal, Materials, Sessions, Settings) — the mockups still show it, and with Step 5 cut there is nothing behind it at all.
 - Confirm sub-nav behavior matches the locked spec: desktop D2 (back arrow replaces top nav on drill-in), mobile M1 (full-screen list → detail with back arrow).
 
 **Done when:** no page references Calendar as a clickable nav item; drill-in behavior is consistent across Goal/Materials/Sessions.
@@ -144,7 +142,7 @@ This is the most fully-specified part of the Notion spec and should be implement
 ## Step 11 — End-to-end pass on VPS (needed for the demo video)
 
 - Deploy backend + frontend to the assigned VPS.
-- Walk the full loop live: connect Drive and pick a real lecture file (local upload as fallback if OAuth misbehaves on camera) → get a topic score → see it on Dashboard → create a goal → watch the roadmap get personalized against that weak topic and an upcoming Calendar deadline → approve/edit milestones → commit → see it reflected on Goal page.
+- Walk the full loop live: connect Drive and pick a real lecture file (local upload as fallback if OAuth misbehaves on camera) → get a topic score → see it on Dashboard → create a goal → watch the roadmap get personalized against that weak topic → approve/edit milestones → commit → see it reflected on Goal page.
 - Capture one clear on-camera moment showing the VPS dashboard or terminal (submission requirement).
 
 **Done when:** the above loop works without manual DB edits, on the actual VPS, in one sitting — this is your demo video's spine.

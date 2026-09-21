@@ -1,6 +1,6 @@
 """`decompose_goal` -- step 2a: goal -> ordered draft milestones.
 
-No Materials and no Calendar context reaches this node. The spec separates
+No Materials context reaches this node. The spec separates
 decomposition from personalization, and mixing them makes both untestable: you
 can no longer tell whether a milestone exists because the goal needs it or
 because a topic happened to score low.
@@ -29,8 +29,8 @@ Reply with JSON only:
                   "description": "one or two sentences on what doing it involves"}}]}}
 
 Order them by dependency: what has to be understood before the next thing makes
-sense. Do not mention deadlines, scheduling or the student's strengths -- those
-are added later from data you cannot see."""
+sense. Do not mention scheduling or the student's strengths -- those are added
+later from data you cannot see."""
 
 
 def _state_id(index: int) -> str:

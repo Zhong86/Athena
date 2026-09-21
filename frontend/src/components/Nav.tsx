@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-// Calendar is deliberately absent: per the plan's nav cleanup, Calendar is
-// backend-only (synced into calendar_events) and never a nav destination.
+// Calendar is deliberately absent: there is no Calendar feature. Deadline
+// tracking was cut, so nothing backs a destination here.
+// "/" is the landing page, not a rail destination — the wordmark below is the
+// way back to it, so the rail starts at the dashboard.
 const LINKS = [
-  { href: "/", label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/goal", label: "Goal" },
   { href: "/materials", label: "Materials" },
   { href: "/sessions", label: "Sessions" },

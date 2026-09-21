@@ -2,7 +2,7 @@
 
 "Want to pass this test" is not yet a goal: no timeframe, no scope, nothing to
 decompose. This node asks until it is, bounded by a max-turns guard, and extracts
-the goal-level fields (course code, deadline, category) that `commit_roadmap`
+the goal-level fields (course code, due date, category) that `commit_roadmap`
 later persists.
 """
 

@@ -192,7 +192,7 @@ export default async function GoalListPage() {
         </div>
 
         <p className="footnote">
-          Roadmaps are ordered from your topic scores and Calendar deadlines
+          Roadmaps are ordered from your topic scores
         </p>
       </div>
 

@@ -1,0 +1,275 @@
+/* The one page a first-time visitor reads. It uses the same tokens as the app
+   but not the 900px .shell -- the hero and the feature grid want more room
+   than a reading column. */
+
+.page {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 24px 96px;
+}
+
+/* ===== Hero ===== */
+.hero {
+  position: relative;
+  padding: 88px 0 72px;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* A soft indigo bloom behind the wordmark, clipped by the hero. Decorative
+   only -- everything below it still reads at full contrast. */
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -180px;
+  left: 50%;
+  width: 720px;
+  height: 480px;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgb(91 110 245 / 13%) 0%,
+    rgb(91 110 245 / 0%) 65%
+  );
+  pointer-events: none;
+}
+
+.heroInner {
+  position: relative;
+}
+
+.mark {
+  width: 76px;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--indigo);
+  margin: 0 0 18px;
+}
+
+.heroTitle {
+  font-family: var(--font-fraunces), serif;
+  font-weight: 500;
+  font-size: clamp(34px, 6vw, 56px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin: 0 auto 20px;
+  max-width: 16ch;
+}
+
+.heroTitle em {
+  font-style: italic;
+  color: var(--indigo);
+}
+
+.heroBody {
+  font-size: clamp(15px, 1.6vw, 17.5px);
+  line-height: 1.65;
+  color: var(--ink-soft);
+  margin: 0 auto;
+  max-width: 56ch;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+/* ===== Section heads ===== */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.sectionHead h2 {
+  font-family: var(--font-fraunces), serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.block {
+  margin-top: 72px;
+}
+
+/* ===== Feature grid ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 26px 24px 22px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgb(28 28 30 / 6%);
+  transform: translateY(-2px);
+}
+
+/* Each card carries one accent from the palette, set inline as --accent /
+   --accent-soft so the glyph, hover border and arrow all agree. */
+.glyph {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  line-height: 1;
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-bottom: 18px;
+}
+
+.cardTitle {
+  font-size: 15.5px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.cardBody {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin: 0 0 18px;
+}
+
+.cardLink {
+  margin-top: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.cardLink span {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.card:hover .cardLink span {
+  transform: translateX(3px);
+}
+
+/* ===== The loop ===== */
+.loop {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.step {
+  padding: 24px 24px 26px;
+  border-top: 1px solid var(--line);
+}
+
+.step:first-child {
+  border-top: none;
+}
+
+.stepNum {
+  font-family: var(--font-fraunces), serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--indigo);
+  display: block;
+  margin-bottom: 10px;
+}
+
+.stepTitle {
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.stepBody {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+@media (min-width: 720px) {
+  .step {
+    border-top: none;
+    border-left: 1px solid var(--line);
+  }
+
+  .step:first-child {
+    border-left: none;
+  }
+}
+
+/* ===== Closing note ===== */
+.note {
+  margin-top: 72px;
+  padding: 30px 32px;
+  background: var(--indigo-wash);
+  border: 1px solid var(--indigo-line);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.note p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  margin: 0 auto;
+  max-width: 60ch;
+}
+
+.note strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .cardLink span {
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+}

@@ -1,7 +1,11 @@
+import Link from "next/link";
+
+import { SessionTrace } from "@/components/SessionTrace";
 import { When } from "@/components/When";
 import {
   messagesOf,
   titleOf,
+  traceOf,
   TYPE_GLYPH,
   TYPE_LABEL,
   TYPE_TONE,
@@ -16,13 +20,23 @@ import styles from "@/styles/log.module.css";
  * `showType` is off where the page already is the type (quizzes) and on where
  * one page covers several (knowledge-sync holds both cron findings and agent
  * actions).
+ *
+ * `showTrace` is on only for Knowledge-Sync: an unprompted run has to justify
+ * itself, so its working is worth the room. A quiz you started does not.
+ *
+ * `hrefBase` turns the title into a link to `${hrefBase}/${id}`. Left unset,
+ * rows stay inert -- /quizzes routes through its own row component.
  */
 export function SessionLog({
   sessions,
   showType = false,
+  showTrace = false,
+  hrefBase,
 }: {
   sessions: Session[];
   showType?: boolean;
+  showTrace?: boolean;
+  hrefBase?: string;
 }) {
   return (
     <ul className={styles.logList}>
@@ -35,7 +49,13 @@ export function SessionLog({
             </div>
             <div className={styles.meta}>
               <div className={styles.titleLine}>
-                <p className={styles.title}>{titleOf(session)}</p>
+                {hrefBase ? (
+                  <Link href={`${hrefBase}/${session.id}`} className={styles.rowLink}>
+                    {titleOf(session)}
+                  </Link>
+                ) : (
+                  <p className={styles.title}>{titleOf(session)}</p>
+                )}
                 {showType ? (
                   <span className={`${styles.typePill} ${styles[tone]}`}>
                     {TYPE_LABEL[session.type]}
@@ -45,6 +65,7 @@ export function SessionLog({
               {session.summary ? (
                 <p className={styles.summary}>{session.summary}</p>
               ) : null}
+              {showTrace ? <SessionTrace trace={traceOf(session)} /> : null}
               <span className={styles.when}>
                 <When
                   iso={session.started_at}

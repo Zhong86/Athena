@@ -11,12 +11,7 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 @router.get("", response_model=DashboardResponse)
 def get_dashboard() -> DashboardResponse:
-    """Live version of `dashboard.html` -- Step 7 of the implementation plan.
-
-    Deadline-aware ranking isn't wired up yet -- Step 5 (Google Calendar) has
-    no table to read from -- so `rank_topics` runs on topic weakness alone;
-    that's `app.ranking`'s documented degraded mode, not a stub.
-    """
+    """Live version of `dashboard.html` -- Step 7 of the implementation plan."""
     with connection() as conn:
         topics = materials_repo.list_topics(conn)
         latest_event = quizzes_repo.latest_understanding_event(conn)

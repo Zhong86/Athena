@@ -443,7 +443,7 @@ Steps 1–10 are built (commit `85f592c`). The Drive rescope continues from ther
     `ingest_status` CHECK.
 12. `digest.py` + regenerate digests for existing topics. No OAuth needed — this lands
     independently and is the cheaper half of the value.
-13. Google OAuth (Calendar + Drive scopes, one consent screen) — built on the
+13. Google OAuth (Drive scope, one consent screen) — built on the
     `connections` table, see `athena-connections-plan.md`. Not a bespoke token store.
 14. `drive.py` client: list/search, metadata, download, Docs export.
 15. `fetching` stage in `pipeline.py`; retry reads from Drive when `origin='drive'`.

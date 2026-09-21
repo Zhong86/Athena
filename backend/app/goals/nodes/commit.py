@@ -59,23 +59,16 @@ def _order_rationale(state: RoadmapState) -> str | None:
     """One sentence naming what drove the ordering, or nothing.
 
     Returns None when there is no ranking signal to cite -- an empty Materials
-    table and no calendar means the order came from the decomposition alone, and
-    claiming otherwise on the detail page would be the exact "template" the copy
-    promises this is not.
+    table means the order came from the decomposition alone, and claiming
+    otherwise on the detail page would be the exact "template" the copy promises
+    this is not.
     """
     milestones = state.get("milestones") or []
     ranked = [m for m in milestones if m.get("source") == "materials" and m.get("reason")]
     if not ranked:
         return None
-    deadlines = (state.get("calendar_context") or {}).get("deadlines") or []
     lead = ranked[0]
     # The milestone's own reason is a finished sentence, so it is lower-cased into
     # this one and its full stop is not doubled.
     because = f"{lead['reason'][0].lower()}{lead['reason'][1:]}".rstrip(".")
-    if deadlines:
-        return (
-            f"Ordered from your check-ins and {len(deadlines)} upcoming deadline"
-            f"{'s' if len(deadlines) > 1 else ''} — "
-            f"“{lead['title']}” came first because {because}."
-        )
     return f"Ordered from your check-ins — “{lead['title']}” came first because {because}."

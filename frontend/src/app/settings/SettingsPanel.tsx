@@ -314,7 +314,7 @@ export function SettingsPanel() {
           {toggle(
             "googleAccess",
             "Google access",
-            "Lets Αθηνα read your Calendar and Drive to line the roadmap up with what is actually in your week.",
+            "Lets Αθηνα read your Drive so lecture notes and problem sets become Materials without re-uploading them.",
           )}
 
           {/* "Websites to access" used to live here as a second list. There is

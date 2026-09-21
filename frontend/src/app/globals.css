@@ -6,8 +6,8 @@
   --ink: #1C1C1E;
   --ink-soft: #6B6B66;
   --line: #E4E2DB;
-  --indigo: #5B6EF5;
-  --indigo-soft: #EEF0FE;
+  --indigo: #6B47EE;
+  --indigo-soft: #EDE9FD;
   --coral: #F2703D;
   --coral-soft: #FDECE4;
   --sage: #7BAE7F;
@@ -18,9 +18,9 @@
 
   /* The nav leans on indigo, so it gets two more steps of it: a wash for the
      chrome's own background and a deeper ink for pressed/active text. */
-  --indigo-wash: #F3F4FE;
-  --indigo-line: #D8DCFB;
-  --indigo-deep: #3F4FD4;
+  --indigo-wash: #F3F0FE;
+  --indigo-line: #D7CEFA;
+  --indigo-deep: #4E2FBC;
 
   /* nav chrome (D2 rail, on mobile the same rail as a drawer) */
   --rail-w: 280px;

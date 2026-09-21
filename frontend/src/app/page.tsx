@@ -1,194 +1,200 @@
+import Image from "next/image";
 import Link from "next/link";
 
-import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
-import {
-  ApiError,
-  getDashboard,
-  goalSubtitle,
-  listGoals,
-  type Dashboard,
-  type GoalCard,
-} from "@/lib/api";
-import { quoteOfTheDay } from "@/lib/quotes";
 
-import styles from "./dashboard.module.css";
+import styles from "./landing.module.css";
 
-export const metadata = { title: "Dashboard · Αθηνα" };
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-
-type Health = {
-  status: string;
-  sqlite: { schema_version: string | null; pending_migrations: number };
-  hermes: boolean;
+export const metadata = {
+  title: "Αθηνα — a study agent that reads your own material",
+  description:
+    "Upload your material, set a goal, and let Αθηνα track what you actually understand.",
 };
 
-async function getHealth(): Promise<Health | null> {
-  try {
-    const res = await fetch(`${API_BASE}/health`, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as Health;
-  } catch {
-    return null;
-  }
-}
+/**
+ * The explainer at "/". Everything described here is wired up today — the
+ * dashboard, goals, materials, sessions, quizzes and knowledge-sync routes.
+ * Settings is deliberately absent: that page is still a placeholder.
+ */
 
-async function getDashboardSafe(): Promise<Dashboard | null> {
-  try {
-    return await getDashboard();
-  } catch {
-    return null;
-  }
-}
+type Feature = {
+  href: string;
+  glyph: string;
+  title: string;
+  body: string;
+  accent: string;
+  accentSoft: string;
+};
 
-/** Server-side clock, which for a single-user local app is the user's clock. */
-function timeOfDay(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-}
+const FEATURES: Feature[] = [
+  {
+    href: "/goal",
+    glyph: "◎",
+    title: "Goals",
+    body: "Say what you want to learn and Αθηνα drafts a roadmap for it — milestones in the order they should be taken, each tied to a topic. Every goal carries a percent done and a current focus.",
+    accent: "var(--indigo)",
+    accentSoft: "var(--indigo-soft)",
+  },
+  {
+    href: "/materials",
+    glyph: "▤",
+    title: "Materials",
+    body: "Upload slides, notes and readings, or paste text straight in. Each file is split into chunks, tagged into topics, and given an understanding score so you can see where you actually stand.",
+    accent: "var(--coral)",
+    accentSoft: "var(--coral-soft)",
+  },
+  {
+    href: "/sessions",
+    glyph: "◍",
+    title: "Sessions",
+    body: "Chat with Αθηνα about anything in your material. It answers from your own chunks rather than from thin air, and what it notices in the conversation feeds your topic scores.",
+    accent: "var(--sage)",
+    accentSoft: "var(--sage-soft)",
+  },
+  {
+    href: "/quizzes",
+    glyph: "✓",
+    title: "Quizzes",
+    body: "Quizzes are generated from a topic you have material for. Answers are graded against the source chunks, and the result is recorded as evidence behind that topic's score.",
+    accent: "var(--amber-ink)",
+    accentSoft: "var(--amber-soft)",
+  },
+  {
+    href: "/knowledge-sync",
+    glyph: "↻",
+    title: "Knowledge-Sync",
+    body: "The log of what Αθηνα did without being asked — scheduled runs across your material and goals, and the actions it took off the back of them.",
+    accent: "var(--indigo-deep)",
+    accentSoft: "var(--indigo-wash)",
+  },
+  {
+    href: "/dashboard",
+    glyph: "◆",
+    title: "Dashboard",
+    body: "The one screen for today: goals still in progress, the last check-in Αθηνα made, and the weak topics that are shaping what it thinks you should work on.",
+    accent: "var(--coral)",
+    accentSoft: "var(--coral-soft)",
+  },
+];
 
-function joinNames(names: string[]): string {
-  if (names.length <= 1) return names[0] ?? "";
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
+const LOOP = [
+  {
+    title: "Material goes in",
+    body: "Files and pasted text are chunked and sorted into topics automatically.",
+  },
+  {
+    title: "Understanding is scored",
+    body: "Quiz results and what surfaces in chat move each topic's score up or down.",
+  },
+  {
+    title: "The roadmap reorders",
+    body: "Weak topics rise, and your goal's current focus follows them.",
+  },
+  {
+    title: "Αθηνα checks back",
+    body: "Scheduled runs revisit the gaps and record what they found.",
+  },
+];
 
-function GoalProgressRow({ goal }: { goal: GoalCard }) {
+function FeatureCard({ feature }: { feature: Feature }) {
   return (
     <li>
-      <Link href={`/goal/${goal.id}`} className={styles.goalRow}>
-        <div
-          className={styles.ring}
-          style={{ "--pct": goal.percent } as React.CSSProperties}
-          aria-hidden="true"
-        >
-          <span>{goal.percent >= 100 ? "✓" : `${goal.percent}%`}</span>
-        </div>
-        <div className={styles.meta}>
-          <p className={styles.title}>{goal.short_name || goal.title}</p>
-          <p className={styles.reason}>{goalSubtitle(goal).join(" · ")}</p>
-        </div>
-        <span className={styles.chevron} aria-hidden="true">
-          ›
+      <Link
+        href={feature.href}
+        className={styles.card}
+        style={
+          {
+            "--accent": feature.accent,
+            "--accent-soft": feature.accentSoft,
+          } as React.CSSProperties
+        }
+      >
+        <span className={styles.glyph} aria-hidden="true">
+          {feature.glyph}
+        </span>
+        <h3 className={styles.cardTitle}>{feature.title}</h3>
+        <p className={styles.cardBody}>{feature.body}</p>
+        <span className={styles.cardLink}>
+          Open {feature.title} <span aria-hidden="true">→</span>
         </span>
       </Link>
     </li>
   );
 }
 
-export default async function DashboardPage() {
-  const quote = quoteOfTheDay();
-
-  let goalsError: string | null = null;
-  const [health, dashboard, goals] = await Promise.all([
-    getHealth(),
-    getDashboardSafe(),
-    listGoals().catch((err) => {
-      goalsError = err instanceof ApiError ? err.message : "Something went wrong.";
-      return [] as GoalCard[];
-    }),
-  ]);
-
-  const weakNames = dashboard?.weak_topics.map((topic) => topic.name) ?? [];
-  const checkIn = dashboard?.check_in ?? null;
-  const activeGoals = goals
-    .filter((g) => g.status === "committed" && g.percent < 100)
-    .slice(0, 3);
-
+export default function LandingPage() {
   return (
     <>
-      <Nav active="Dashboard" />
+      <Nav />
 
-      <div className="shell">
-        <div className="greeting">
-          <h1>{timeOfDay()}, Zhong.</h1>
-          <p>Here&rsquo;s what&rsquo;s worth your attention today.</p>
-        </div>
-
-        <div className="section">
-          <blockquote className={styles.quoteCard}>
-            <p className={styles.quoteText}>&ldquo;{quote.text}&rdquo;</p>
-            <footer className={styles.quoteAuthor}>— {quote.author}</footer>
-          </blockquote>
-        </div>
-
-        {goalsError ? <div className="banner-error">{goalsError}</div> : null}
-
-        <div className="section">
-          <div className="section-head">
-            <h2>Goals in progress</h2>
-            <Link href="/goal" className={styles.subtleLink}>
-              See all
-            </Link>
-          </div>
-
-          {activeGoals.length ? (
-            <ul className={styles.goalList}>
-              {activeGoals.map((goal) => (
-                <GoalProgressRow key={goal.id} goal={goal} />
-              ))}
-            </ul>
-          ) : (
-            <div className={styles.emptyCard}>
-              <p>No goals in progress yet.</p>
-              <Link href="/goal/new" className="btn-inline">
-                Start a goal
+      <div className={styles.page}>
+        <header className={styles.hero}>
+          <div className={styles.heroInner}>
+            <Image
+              className={styles.mark}
+              src="/logo-mark.png"
+              alt=""
+              width={460}
+              height={320}
+              priority
+            />
+            <p className={styles.eyebrow}>Αθηνα</p>
+            <h1 className={styles.heroTitle}>
+              A study agent that reads <em>your</em> material.
+            </h1>
+            <p className={styles.heroBody}>
+              Give Αθηνα the slides, notes and readings you were going to study
+              anyway. It sorts them into topics, keeps a running score of what you
+              understand, and uses that score to decide what is worth your attention
+              next.
+            </p>
+            <div className={styles.heroActions}>
+              <Link href="/dashboard" className="btn">
+                Open the dashboard
+              </Link>
+              <Link href="/materials" className="btn-inline ghost">
+                Upload material
               </Link>
             </div>
-          )}
-        </div>
-
-        {/* Freshest information first: what the last check-in actually noticed
-            is the reason weak topics below are worth attention. */}
-        <div className="section">
-          <div className="section-head">
-            <h2>Last check-in</h2>
           </div>
+        </header>
 
-          {checkIn ? (
-            <div className={styles.checkinCard}>
-              <h3>{checkIn.topic_name}</h3>
-              <p>{checkIn.reason}</p>
-            </div>
-          ) : (
-            <div className={styles.checkinCard}>
-              <h3>No check-ins yet</h3>
-              <p>
-                Upload materials and take a quiz or two — once Hermes scores a
-                topic, this card shows what it noticed.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {weakNames.length > 0 && (
-          <div className="section">
-            <div className={styles.weakAlert}>
-              <span className={styles.weakAlertIcon}>◆</span>
-              <div>
-                <p className={styles.weakAlertTitle}>
-                  {weakNames.length} weak {weakNames.length === 1 ? "topic is" : "topics are"}{" "}
-                  shaping today&rsquo;s priorities
-                </p>
-                <p className={styles.weakAlertBody}>
-                  <strong>{joinNames(weakNames)}</strong> came up as struggles in past
-                  check-ins.
-                </p>
-              </div>
-            </div>
+        <section className={styles.block}>
+          <div className={styles.sectionHead}>
+            <h2>What it does</h2>
+            <span className={styles.rule} aria-hidden="true" />
           </div>
-        )}
+          <ul className={styles.grid}>
+            {FEATURES.map((feature) => (
+              <FeatureCard key={feature.href} feature={feature} />
+            ))}
+          </ul>
+        </section>
 
-        <p className="footnote">
-          {health
-            ? `backend ${health.status} · schema ${health.sqlite.schema_version ?? "none"} · hermes ${health.hermes ? "reachable" : "unreachable"}`
-            : "backend unreachable"}
-        </p>
+        <section className={styles.block}>
+          <div className={styles.sectionHead}>
+            <h2>How the pieces feed each other</h2>
+            <span className={styles.rule} aria-hidden="true" />
+          </div>
+          <ol className={styles.loop}>
+            {LOOP.map((step, i) => (
+              <li key={step.title} className={styles.step}>
+                <span className={styles.stepNum}>0{i + 1}</span>
+                <p className={styles.stepTitle}>{step.title}</p>
+                <p className={styles.stepBody}>{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <div className={styles.note}>
+          <p>
+            <strong>Nothing here is generic coursework.</strong> Every topic, quiz
+            question and roadmap step comes from material you uploaded yourself — so
+            the score Αθηνα keeps is a score of your syllabus, not someone else&rsquo;s.
+          </p>
+        </div>
       </div>
-
-      <ChatLauncher />
     </>
   );
 }
