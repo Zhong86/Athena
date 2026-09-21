@@ -6,7 +6,8 @@ from pydantic import BaseModel
 
 from agent import hermes
 from app.config import get_settings
-from app.db import init_db
+from app.db import connection, init_db
+from app.migrations import current_version, pending_count
 
 
 @asynccontextmanager
@@ -28,10 +29,19 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> dict[str, object]:
-    settings = get_settings()
+    """Reports migration state, not just file existence -- an empty or
+    half-migrated DB must not read as healthy."""
+    with connection() as conn:
+        version = current_version(conn)
+        pending = pending_count(conn)
+
     return {
-        "status": "ok",
-        "sqlite": settings.sqlite_path.exists(),
+        "status": "ok" if version and not pending else "degraded",
+        "sqlite": {
+            "path": str(get_settings().sqlite_path),
+            "schema_version": version,
+            "pending_migrations": pending,
+        },
         "hermes": await hermes.ping(),
     }
 

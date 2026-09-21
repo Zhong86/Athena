@@ -1,6 +1,10 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
-type Health = { status: string; sqlite: boolean; hermes: boolean };
+type Health = {
+  status: string;
+  sqlite: { schema_version: string | null; pending_migrations: number };
+  hermes: boolean;
+};
 
 async function getHealth(): Promise<Health | null> {
   try {
@@ -24,7 +28,12 @@ export default async function Home() {
 
       <ul style={{ listStyle: "none", padding: 0, marginTop: 40, lineHeight: 2 }}>
         <li>backend: {health ? "reachable" : "unreachable"}</li>
-        <li>sqlite: {health?.sqlite ? "ready" : "not initialised"}</li>
+        <li>
+          schema:{" "}
+          {health?.sqlite.schema_version
+            ? `${health.sqlite.schema_version} (${health.sqlite.pending_migrations} pending)`
+            : "not migrated"}
+        </li>
         <li>hermes: {health?.hermes ? "reachable" : "unreachable"}</li>
       </ul>
     </main>

@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from app.config import get_settings
+from app.migrations import migrate
 
 
 def _connect() -> sqlite3.Connection:
@@ -29,11 +30,7 @@ def connection() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
-def init_db() -> None:
-    """Touch the database file so /health can report on it.
-
-    Schema itself lands in Step 2; this only guarantees the file and its
-    parent directory exist.
-    """
-    with connection():
-        pass
+def init_db() -> list[str]:
+    """Create the database file if needed and bring the schema up to date."""
+    with connection() as conn:
+        return migrate(conn)
