@@ -98,10 +98,17 @@ On your laptop:
 
 ```bash
 ssh-keygen -t ed25519 -f athena_deploy -N ""
-ssh-copy-id -i athena_deploy.pub <user>@<vps-host>
+ssh-copy-id -i athena_deploy.pub -p <ssh-port> <user>@<vps-host>
 ```
 
-The **private** key (`athena_deploy`) goes into the `VPS_SSH_KEY` secret.
+The **private** key (`athena_deploy`) goes into the `VPS_SSH_KEY` secret. Pipe
+the file in rather than pasting it — the workflow fails with
+`ssh: no key found` if the trailing newline after `-----END OPENSSH PRIVATE
+KEY-----` is lost:
+
+```bash
+gh secret set VPS_SSH_KEY < athena_deploy
+```
 
 ### 7. Create a GHCR read token
 
@@ -121,6 +128,7 @@ only, and store it as the `GHCR_TOKEN` secret.
 | Secret | Value |
 | --- | --- |
 | `VPS_HOST` | VPS IP or hostname |
+| `VPS_PORT` | SSH port — omit if sshd is on 22 |
 | `VPS_USER` | SSH user |
 | `VPS_SSH_KEY` | Contents of the private `athena_deploy` key |
 | `VPS_APP_DIR` | e.g. `/home/<user>/athena` |
