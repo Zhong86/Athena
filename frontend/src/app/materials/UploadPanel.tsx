@@ -8,7 +8,7 @@ import {
   ApiError,
   deleteUpload,
   formatBytes,
-  INGEST_LABEL,
+  ingestLabel,
   isDegraded,
   isIngesting,
   listUploads,
@@ -18,6 +18,7 @@ import {
   type SourceFile,
 } from "@/lib/api";
 
+import { DrivePicker } from "./DrivePicker";
 import styles from "./materials.module.css";
 import { SourceName } from "./SourceName";
 
@@ -142,6 +143,10 @@ export function UploadPanel({ initial }: { initial: SourceFile[] }) {
 
   return (
     <>
+      <div className={styles.sourceTabs}>
+        <DrivePicker onImported={refresh} />
+      </div>
+
       <form onSubmit={submit} className={styles.uploadForm}>
         <input
           ref={fileRef}
@@ -259,7 +264,7 @@ export function UploadPanel({ initial }: { initial: SourceFile[] }) {
                     isDegraded(upload) ? styles.degraded : styles[upload.ingest_status]
                   }`}
                 >
-                  {isDegraded(upload) ? "Partly done" : INGEST_LABEL[upload.ingest_status]}
+                  {ingestLabel(upload)}
                 </span>
                 {upload.ingest_status === "failed" || isDegraded(upload) ? (
                   <button

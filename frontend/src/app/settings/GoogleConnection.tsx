@@ -418,7 +418,7 @@ function Instructions() {
         <li>
           Under <strong>APIs &amp; Services → Library</strong>, enable the{" "}
           <strong>Google Drive API</strong>. Enable Gmail, Calendar, Sheets, Docs
-          or People too if you want Hermes to reach those later.
+          or People too if you want Athena to reach those later.
         </li>
         <li>
           Under <strong>APIs &amp; Services → Credentials</strong>, create an{" "}

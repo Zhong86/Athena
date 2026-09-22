@@ -461,3 +461,101 @@
     justify-content: flex-start;
   }
 }
+
+/* ---------- Google Drive picker ---------- */
+
+.sourceTabs {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.drivePanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.driveHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.driveTitle {
+  font-weight: 600;
+  margin: 0;
+}
+
+.driveLede {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.driveSearch {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+.driveSearch:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 1px;
+}
+
+/* Capped so a large Drive scrolls inside the panel rather than pushing the
+   Sources list off the page. */
+.driveList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.driveRow + .driveRow {
+  border-top: 1px solid var(--line);
+}
+
+.driveLabel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.driveLabel:hover {
+  background: var(--surface);
+}
+
+.driveLabel input:disabled {
+  cursor: not-allowed;
+}
+
+.driveLabel input:disabled ~ .meta {
+  opacity: 0.5;
+}
+
+.rejectList {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}

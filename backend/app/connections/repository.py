@@ -145,6 +145,42 @@ def mark_connected(
     return get(conn, slug)  # type: ignore[return-value]
 
 
+def update_token(
+    conn: sqlite3.Connection,
+    *,
+    slug: str,
+    secret: dict[str, Any],
+    expires_at: str,
+) -> None:
+    """Persist a refreshed access token.
+
+    Deliberately narrower than `mark_connected`: a refresh renews access, it
+    does not re-establish the connection, so `connected_at`, `scopes` and
+    `account_label` are left alone. Status is forced back to 'connected'
+    because a successful refresh disproves a previous 'expired' or 'error'.
+    """
+    conn.execute(
+        """
+        UPDATE connections
+           SET secret     = ?,
+               expires_at = ?,
+               status     = 'connected',
+               last_error = NULL
+         WHERE slug = ?
+        """,
+        (crypto.encrypt(secret), expires_at, slug),
+    )
+
+
+def mark_synced(conn: sqlite3.Connection, slug: str) -> None:
+    """Stamp `last_synced_at` after a successful read, so Settings can show
+    when Αθηνα last actually used the connection rather than when it was made."""
+    conn.execute(
+        "UPDATE connections SET last_synced_at = ? WHERE slug = ?",
+        (utc_now_iso(), slug),
+    )
+
+
 def mark_error(conn: sqlite3.Connection, slug: str, message: str) -> None:
     conn.execute(
         "UPDATE connections SET status = 'error', last_error = ? WHERE slug = ?",

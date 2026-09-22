@@ -23,6 +23,17 @@ INGEST_STATUSES = (
 # already in flight and a second one would duplicate chunks.
 RESTARTABLE = ("pending", "failed")
 
+# Mid-run statuses. Narrower than "not restartable": a `ready` row is finished,
+# not busy, so re-importing it from Drive is allowed -- that is how an edit made
+# in Drive gets picked up. `pending` is excluded deliberately, because a backend
+# restart orphans rows there and re-importing has to be able to rescue them;
+# `_claim` is what stops two runs overlapping.
+IN_FLIGHT = ("extracting", "tagging", "embedding")
+
+
+def is_in_flight(source_file: dict) -> bool:
+    return source_file["ingest_status"] in IN_FLIGHT
+
 
 def is_restartable(source_file: dict) -> bool:
     """Restartable if the run stopped, or if it finished degraded.
@@ -55,6 +66,7 @@ def create_source_file(
     drive_file_id: str | None = None,
     drive_url: str | None = None,
     drive_modified_at: str | None = None,
+    drive_mime_type: str | None = None,
 ) -> dict[str, Any]:
     """A Drive-origin row carries a pointer instead of a `stored_path`: the
     bytes stay in the user's Drive and only the derived index lives here."""
@@ -62,8 +74,8 @@ def create_source_file(
         """
         INSERT INTO source_files
             (filename, upload_type, byte_size, stored_path,
-             origin, drive_file_id, drive_url, drive_modified_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             origin, drive_file_id, drive_url, drive_modified_at, drive_mime_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING *
         """,
         (
@@ -75,9 +87,56 @@ def create_source_file(
             drive_file_id,
             drive_url,
             drive_modified_at,
+            drive_mime_type,
         ),
     )
     return dict(cur.fetchone())
+
+
+def refresh_drive_pointer(
+    conn: sqlite3.Connection,
+    file_id: int,
+    *,
+    filename: str,
+    upload_type: str,
+    drive_url: str | None,
+    drive_modified_at: str | None,
+    drive_mime_type: str | None,
+) -> dict[str, Any] | None:
+    """Re-importing a file already in Αθηνα updates its row and queues a fresh
+    ingest, rather than adding a second one -- the partial unique index on
+    `drive_file_id` would reject the insert anyway.
+
+    The pointer is re-read from Drive each time because any of it may have
+    changed since: files get renamed, and a .txt converted to a Google Doc
+    changes both the mime type and how it must be fetched. Status goes back to
+    'pending' so the caller can start the pipeline; `replace_chunks` discards
+    the previous run's chunks when it does.
+    """
+    cur = conn.execute(
+        """
+        UPDATE source_files
+           SET filename          = ?,
+               upload_type       = ?,
+               drive_url         = ?,
+               drive_modified_at = ?,
+               drive_mime_type   = ?,
+               ingest_status     = 'pending',
+               ingest_error      = NULL
+         WHERE id = ?
+        RETURNING *
+        """,
+        (
+            filename,
+            upload_type,
+            drive_url,
+            drive_modified_at,
+            drive_mime_type,
+            file_id,
+        ),
+    )
+    row = cur.fetchone()
+    return dict(row) if row else None
 
 
 def find_by_drive_file_id(
@@ -90,6 +149,25 @@ def find_by_drive_file_id(
         "SELECT * FROM source_files WHERE drive_file_id = ?", (drive_file_id,)
     ).fetchone()
     return dict(row) if row else None
+
+
+def source_ids_by_drive_id(
+    conn: sqlite3.Connection, drive_file_ids: list[str]
+) -> dict[str, int]:
+    """Which of these Drive files are already in Materials.
+
+    One query rather than one per row: the picker annotates a whole page at a
+    time, and 50 round-trips to answer "have I seen this before" is 49 too many.
+    """
+    if not drive_file_ids:
+        return {}
+
+    placeholders = ",".join("?" * len(drive_file_ids))
+    rows = conn.execute(
+        f"SELECT id, drive_file_id FROM source_files WHERE drive_file_id IN ({placeholders})",
+        drive_file_ids,
+    )
+    return {r["drive_file_id"]: r["id"] for r in rows}
 
 
 def get_source_file(conn: sqlite3.Connection, file_id: int) -> dict[str, Any] | None:

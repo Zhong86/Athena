@@ -43,6 +43,49 @@ class UploadAccepted(BaseModel):
     upload_type: UploadType
 
 
+class DriveFile(BaseModel):
+    """One row of the Drive picker. Not a `source_files` row -- nothing has
+    been imported yet at this point."""
+
+    drive_file_id: str
+    name: str
+    mime_type: str
+    # How Αθηνα would ingest it, so the picker can group and explain.
+    upload_type: UploadType
+    modified_at: str | None = None
+    # Absent for native Google formats, which have no bytes of their own.
+    size: int | None = None
+    web_view_link: str | None = None
+    # True for Docs/Sheets/Slides: what Αθηνα reads is an exported text
+    # rendering, not the document itself, and the picker says so.
+    exported: bool = False
+    # Set when this file is already in Materials, so the picker can offer
+    # "re-import" instead of silently making a duplicate.
+    source_file_id: int | None = None
+
+
+class DriveFilePage(BaseModel):
+    items: list[DriveFile] = []
+    # Drive's opaque cursor; None on the last page.
+    next_page_token: str | None = None
+
+
+class DriveImportRequest(BaseModel):
+    # Ids only. Filename and mime type are re-read from Drive server-side --
+    # they decide how bytes are extracted, so they are not the browser's to
+    # assert.
+    file_ids: list[str] = Field(min_length=1, max_length=25)
+
+
+class DriveImportResult(BaseModel):
+    """202 body. Partial success is normal: one unreadable file should not
+    cost the user the other nine."""
+
+    accepted: list[UploadAccepted] = []
+    # `{filename or id: reason}` for files that could not be started.
+    rejected: dict[str, str] = {}
+
+
 class Topic(BaseModel):
     id: int
     name: str

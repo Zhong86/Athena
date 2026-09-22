@@ -17,7 +17,11 @@ from pathlib import Path
 import anyio.to_thread
 
 from agent import embeddings
+from app.config import get_settings
+from app.connections import google_drive
+from app.connections import repository as connections_repo
 from app.db import connection
+from app.materials import drive
 from app.materials import repository as repo
 from app.materials import vectors as vector_store
 from app.materials.ingest import tagger
@@ -137,6 +141,53 @@ async def _embed(file_id: int) -> None:
         repo.set_embedding_refs(conn, refs)
 
 
+async def _source_bytes(source_file: dict) -> bytes:
+    """The file's content, wherever it actually lives.
+
+    A local upload is read from disk; a Drive file is re-fetched every run,
+    because nothing was kept here to read (migrations/005_drive_sources.sql).
+    That makes a Drive retry a live re-fetch, which is the point -- it picks up
+    edits made in Drive since the last ingest.
+
+    This runs inside the `extracting` stage rather than a `fetching` one of its
+    own: see migrations/009_drive_mime.sql for why that status does not exist.
+    """
+    if source_file["origin"] != "drive":
+        stored_path = source_file["stored_path"]
+        if not stored_path or not Path(stored_path).exists():
+            raise IngestError("the uploaded file is no longer on disk")
+        return Path(stored_path).read_bytes()
+
+    drive_file_id = source_file.get("drive_file_id")
+    if not drive_file_id:
+        raise IngestError("this Drive file has no id recorded, so it cannot be fetched")
+
+    settings = get_settings()
+    try:
+        data = await drive.fetch_bytes(
+            drive_file_id,
+            source_file.get("drive_mime_type") or "",
+            settings.max_upload_bytes,
+        )
+    except google_drive.DriveNotConnected as exc:
+        raise IngestError(f"Drive is unavailable: {exc}") from exc
+    except google_drive.DriveError as exc:
+        raise IngestError(f"could not fetch this file from Drive: {exc}") from exc
+
+    # Only knowable after the fetch -- an exported Doc has no size in Drive's
+    # metadata, so the row would otherwise show nothing.
+    with connection() as conn:
+        conn.execute(
+            "UPDATE source_files SET byte_size = ? WHERE id = ?",
+            (len(data), source_file["id"]),
+        )
+        # Settings shows when the connection was last actually used, which is
+        # more reassuring than when it was made.
+        connections_repo.mark_synced(conn, connections_repo.GOOGLE_SLUG)
+
+    return data
+
+
 async def ingest(file_id: int) -> None:
     """Run the full pipeline. Never raises -- failures are recorded on the row,
     because this runs detached as a background task with no caller to catch."""
@@ -145,11 +196,9 @@ async def ingest(file_id: int) -> None:
         return
 
     try:
-        stored_path = source_file["stored_path"]
-        if not stored_path or not Path(stored_path).exists():
-            raise IngestError("the uploaded file is no longer on disk")
+        data = await _source_bytes(source_file)
 
-        text = extract(Path(stored_path).read_bytes(), source_file["upload_type"])
+        text = extract(data, source_file["upload_type"])
         chunks = chunk(text)
         if not chunks:
             raise IngestError("no usable text found in this file")

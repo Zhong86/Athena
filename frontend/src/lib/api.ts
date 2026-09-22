@@ -59,7 +59,19 @@ export type SessionPage = {
   offset: number;
 };
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  /**
+   * The HTTP status, when there was one. Carried because some callers have to
+   * tell "you need to fix something" from "the upstream broke" -- the Drive
+   * picker turns a 409 into a link to Settings and a 502 into a retry.
+   */
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // FormData must set its own Content-Type so the multipart boundary survives.
@@ -85,7 +97,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* non-JSON error body */
     }
-    throw new ApiError(detail);
+    throw new ApiError(detail, res.status);
   }
 
   // DELETE returns 204 with no body; res.json() would throw on it.
@@ -260,6 +272,57 @@ export function uploadFile(file: File): Promise<UploadAccepted> {
   const form = new FormData();
   form.append("file", file);
   return request<UploadAccepted>("/materials/uploads", { method: "POST", body: form });
+}
+
+/* ---------- Google Drive ---------- */
+
+/** One row of the Drive picker. Nothing is imported at this point. */
+export type DriveFile = {
+  drive_file_id: string;
+  name: string;
+  mime_type: string;
+  /** How Αθηνα would ingest it, once imported. */
+  upload_type: UploadType;
+  modified_at: string | null;
+  /** Absent for Docs, Sheets and Slides — they have no bytes of their own. */
+  size: number | null;
+  web_view_link: string | null;
+  /** True for native Google formats: what Αθηνα reads is an exported text
+   *  rendering, not the document itself. */
+  exported: boolean;
+  /** Set when this file is already in Materials, so the picker can offer
+   *  "re-import" rather than silently duplicating it. */
+  source_file_id: number | null;
+};
+
+export type DriveFilePage = {
+  items: DriveFile[];
+  next_page_token: string | null;
+};
+
+export type DriveImportResult = {
+  accepted: UploadAccepted[];
+  /** `{filename: reason}`. Partial success is normal — one unreadable file
+   *  should not cost the user the other nine. */
+  rejected: Record<string, string>;
+};
+
+export function listDriveFiles(opts: {
+  search?: string;
+  pageToken?: string;
+} = {}): Promise<DriveFilePage> {
+  const params = new URLSearchParams();
+  if (opts.search) params.set("search", opts.search);
+  if (opts.pageToken) params.set("page_token", opts.pageToken);
+  const query = params.toString();
+  return request<DriveFilePage>(`/materials/drive/files${query ? `?${query}` : ""}`);
+}
+
+export function importDriveFiles(fileIds: string[]): Promise<DriveImportResult> {
+  return request<DriveImportResult>("/materials/drive/import", {
+    method: "POST",
+    body: JSON.stringify({ file_ids: fileIds }),
+  });
 }
 
 export function retryUpload(id: number): Promise<SourceFile> {
@@ -848,6 +911,23 @@ export const INGEST_LABEL: Record<IngestStatus, string> = {
   ready: "Ready",
   failed: "Failed",
 };
+
+/**
+ * The status word for one row.
+ *
+ * A Drive file is fetched at the start of the `extracting` stage rather than
+ * in a `fetching` stage of its own — widening the `ingest_status` CHECK would
+ * mean rebuilding `source_files`, and `chunks` cascades on delete (see
+ * migrations/009_drive_mime.sql). The distinction the user cares about is
+ * still real, so it is derived here from `origin` instead of stored.
+ */
+export function ingestLabel(upload: SourceFile): string {
+  if (isDegraded(upload)) return "Partly done";
+  if (upload.origin === "drive" && upload.ingest_status === "extracting") {
+    return "Fetching from Drive";
+  }
+  return INGEST_LABEL[upload.ingest_status];
+}
 
 /** The square file badge from topic-detail.html. */
 export const UPLOAD_GLYPH: Record<UploadType, string> = {
