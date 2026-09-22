@@ -1,0 +1,19 @@
+# Single origin for both services: the browser only ever talks to
+# https://<domain>, which keeps CORS trivial and means no second certificate.
+{$ATHENA_DOMAIN} {
+	encode gzip
+
+	# handle_path strips the /api prefix, so FastAPI still sees its own routes
+	# (/health, /sessions, ...) and no router needs a prefix added.
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+
+	log {
+		output stdout
+	}
+}

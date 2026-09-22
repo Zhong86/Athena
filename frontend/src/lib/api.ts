@@ -1,4 +1,17 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+/**
+ * Server and browser need different addresses for the same backend. In Docker
+ * the browser reaches it through the reverse proxy (`https://host/api`) while
+ * server components reach it directly on the compose network
+ * (`http://backend:8000`) -- routing SSR back out through the public hostname
+ * relies on hairpin NAT, which plenty of VPS hosts do not do.
+ *
+ * `INTERNAL_API_BASE_URL` is deliberately not `NEXT_PUBLIC_`: it must stay a
+ * runtime server-only value, never inlined into the client bundle.
+ */
+export const API_BASE =
+  (typeof window === "undefined" ? process.env.INTERNAL_API_BASE_URL : undefined) ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  "http://localhost:8000";
 
 /** Matches the CHECK constraint on sessions.type. */
 export type SessionType = "chat" | "quiz" | "cron" | "agent_action";

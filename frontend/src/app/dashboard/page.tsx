@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
 import {
+  API_BASE,
   ApiError,
   getDashboard,
   goalSubtitle,
@@ -15,8 +16,6 @@ import { quoteOfTheDay } from "@/lib/quotes";
 import styles from "./dashboard.module.css";
 
 export const metadata = { title: "Dashboard · Αθηνα" };
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 type Health = {
   status: string;

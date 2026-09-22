@@ -1,0 +1,5 @@
+# VPS deploy config -- holds the Google client secret and Hermes API key.
+# .env.example is the tracked template.
+.env
+.env.*
+!.env.example

@@ -1,0 +1,64 @@
+# Production stack for the VPS. Images are built in CI and pulled here -- this
+# file never builds, so a deploy is a pull plus a restart and the box never
+# needs the ~2GB of toolchain a Next.js build wants.
+#
+# Copy .env.example to .env on the VPS and fill it in before the first `up`.
+
+name: athena
+
+services:
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-zhong86}/athena-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Overrides the .env defaults that only make sense on a laptop.
+      SQLITE_PATH: /app/data/athena.db
+      LANCEDB_PATH: /app/data/lancedb
+      UPLOADS_PATH: /app/data/uploads
+      FASTEMBED_CACHE: /app/data/models
+    volumes:
+      # Everything durable lives here: SQLite, the LanceDB index, original
+      # uploads, and the ~130MB ONNX embedding model. Losing this volume means
+      # losing every student's materials -- see DEPLOY.md for the backup line.
+      - athena-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      # Generous: the first boot downloads the embedding model before serving.
+      start_period: 180s
+      retries: 3
+
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-zhong86}/athena-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      # Server components only. The browser-facing URL was already baked into
+      # the bundle at build time and cannot be changed from here.
+      INTERNAL_API_BASE_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ATHENA_DOMAIN: ${ATHENA_DOMAIN:?set ATHENA_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persisting these keeps Let's Encrypt from re-issuing on every restart,
+      # which would hit the rate limit fast.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  athena-data:
+  caddy-data:
+  caddy-config:
