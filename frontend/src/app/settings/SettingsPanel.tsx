@@ -311,11 +311,10 @@ export function SettingsPanel() {
           <h2>General</h2>
         </div>
         <div className={styles.group}>
-          {toggle(
-            "googleAccess",
-            "Google access",
-            "Lets Αθηνα read your Drive so lecture notes and problem sets become Materials without re-uploading them.",
-          )}
+          {/* Google access used to be a toggle here. It is a real connection
+              now -- see the Google Drive section above -- and two controls for
+              the same permission, one of which did nothing, was worse than
+              none. */}
 
           {/* "Websites to access" used to live here as a second list. There is
               only one set of domains Αθηνα may fetch, so it is the Goal

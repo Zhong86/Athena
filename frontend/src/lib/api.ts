@@ -723,6 +723,107 @@ export function getDashboard(): Promise<Dashboard> {
   return request<Dashboard>("/dashboard");
 }
 
+/* ---------- connections ---------- */
+
+/** Mirrors the CHECK constraint on connections.provider. */
+export type Provider = "google" | "notion" | "web";
+
+/**
+ * Mirrors the CHECK constraint on connections.status. `authorizing` is the gap
+ * between uploading the client secret and pasting the code back -- persisted so
+ * a reload resumes the wizard instead of restarting it.
+ */
+export type ConnectionStatus =
+  | "disconnected"
+  | "authorizing"
+  | "connected"
+  | "expired"
+  | "error";
+
+/** Mirrors the CHECK constraint on connection_capabilities.capability. */
+export type Capability = "drive.read" | "notion.read" | "web.read";
+
+/**
+ * Note the absence of a credential field. The backend drops `secret` in its
+ * repository layer, so there is no shape here it could arrive through --
+ * `scopes` is what Google granted, not the grant itself.
+ */
+export type Connection = {
+  id: number;
+  provider: Provider;
+  slug: string;
+  display_name: string;
+  account_label: string | null;
+  base_url: string | null;
+  auth_type: "oauth2" | "token" | "none";
+  status: ConnectionStatus;
+  scopes: string[];
+  /** What the user permits, keyed by capability. Granted is not permitted. */
+  capabilities: Partial<Record<Capability, boolean>>;
+  expires_at: string | null;
+  last_synced_at: string | null;
+  last_error: string | null;
+  connected_at: string | null;
+  created_at: string;
+};
+
+export type ConnectionsPage = {
+  items: Connection[];
+  /** False when CONNECTIONS_SECRET_KEY is unset: connecting is refused. */
+  secrets_ready: boolean;
+  /** Where credential files land, e.g. "local (/app/.hermes)". */
+  hermes_destination: string;
+};
+
+export type AuthorizeStarted = {
+  authorize_url: string;
+  redirect_uri: string;
+  connection: Connection;
+};
+
+export type DisconnectResult = {
+  connection: Connection;
+  /** Set when the local clear worked but the revoke or file removal did not. */
+  warning: string | null;
+};
+
+export function getConnections(): Promise<ConnectionsPage> {
+  return request<ConnectionsPage>("/connections");
+}
+
+export function uploadGoogleClient(file: File): Promise<AuthorizeStarted> {
+  const body = new FormData();
+  body.append("file", file);
+  return request<AuthorizeStarted>("/connections/google/client", {
+    method: "POST",
+    body,
+  });
+}
+
+/** `pasted` is the whole redirect URL or just the code -- the backend takes
+    either, because people paste both. */
+export function exchangeGoogleCode(pasted: string): Promise<Connection> {
+  return request<Connection>("/connections/google/exchange", {
+    method: "POST",
+    body: JSON.stringify({ pasted }),
+  });
+}
+
+export function setCapability(
+  slug: string,
+  capability: Capability,
+  enabled: boolean,
+): Promise<Connection> {
+  return request<Connection>(`/connections/${slug}/capabilities/${capability}`, {
+    method: "PUT",
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+export function disconnectGoogle(): Promise<DisconnectResult> {
+  return request<DisconnectResult>("/connections/google", { method: "DELETE" });
+}
+
 /* ---------- presentation helpers ---------- */
 
 /**
@@ -916,4 +1017,28 @@ export function titleOf(session: Session): string {
   const first = messagesOf(session).find((m) => m.role === "user")?.content;
   if (first) return first.length > 60 ? `${first.slice(0, 60)}…` : first;
   return `${TYPE_LABEL[session.type]} session`;
+}
+
+/* ---------- connection presentation helpers ---------- */
+
+export const CONNECTION_LABEL: Record<ConnectionStatus, string> = {
+  disconnected: "Not connected",
+  authorizing: "Waiting for you",
+  connected: "Connected",
+  expired: "Needs reconnecting",
+  error: "Something went wrong",
+};
+
+/** Google's scope URLs are unreadable in a list. Falls back to the last path
+    segment, so an unmapped scope still renders as something. */
+export function scopeLabel(scope: string): string {
+  const known: Record<string, string> = {
+    "https://www.googleapis.com/auth/drive.readonly": "Read your Drive files",
+    "https://www.googleapis.com/auth/drive.file": "Access files it opens",
+    "https://www.googleapis.com/auth/drive": "Full Drive access",
+    "https://www.googleapis.com/auth/userinfo.email": "See your email address",
+    "https://www.googleapis.com/auth/userinfo.profile": "See your basic profile",
+    openid: "Confirm your identity",
+  };
+  return known[scope] ?? scope.split("/").pop() ?? scope;
 }

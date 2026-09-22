@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM python:3.13-slim
 
 # tesseract is a runtime dependency, not a Python one: pytesseract shells out to
@@ -10,15 +11,17 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
 
-# Copied first so the (slow, ~700MB of wheels) install layer is reused whenever
-# only application code changed.
+# Copied first so the (slow, ~450MB of wheels) install layer is reused whenever
+# only application code changed. The cache mount persists pip's download cache
+# across builds -- including in CI, since deploy.yml caches it via buildx's gha
+# backend -- so adding one dependency doesn't force every wheel to redownload.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 COPY agent/ ./agent/
 COPY app/ ./app/

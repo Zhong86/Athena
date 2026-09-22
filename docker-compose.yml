@@ -17,11 +17,23 @@ services:
       LANCEDB_PATH: /app/data/lancedb
       UPLOADS_PATH: /app/data/uploads
       FASTEMBED_CACHE: /app/data/models
+      # Container-side landing spot for the bind mount below. HERMES_CONFIG_DIR
+      # (the host path) is set in .env; this path is fixed by the mount, so it
+      # lives here rather than there.
+      HERMES_CONFIG_PATH: /app/.hermes
     volumes:
       # Everything durable lives here: SQLite, the LanceDB index, original
       # uploads, and the ~130MB ONNX embedding model. Losing this volume means
       # losing every student's materials -- see DEPLOY.md for the backup line.
       - athena-data:/app/data
+      # Hermes runs on the VPS host, not in a container. This lets the backend
+      # write the credential files Hermes reads directly, so nothing crosses a
+      # network -- see app/config.py's note on hermes_config_path.
+      - ${HERMES_CONFIG_DIR:?set HERMES_CONFIG_DIR in .env}:/app/.hermes
+    extra_hosts:
+      # HERMES_BASE_URL in .env should target this, not 127.0.0.1 -- that would
+      # mean the container itself, and Hermes is a process on the host.
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=5).status == 200 else 1)"]
       interval: 30s
@@ -49,6 +61,11 @@ services:
       - "443:443"
     environment:
       ATHENA_DOMAIN: ${ATHENA_DOMAIN:?set ATHENA_DOMAIN in .env}
+      # Gates /api/connections*, the only route that takes a credential.
+      # Required, not defaulted: a blank hash makes basic_auth accept nothing,
+      # which would silently lock the owner out of connecting Google.
+      ATHENA_ADMIN_USER: ${ATHENA_ADMIN_USER:?set ATHENA_ADMIN_USER in .env}
+      ATHENA_ADMIN_PASSWORD_HASH: ${ATHENA_ADMIN_PASSWORD_HASH:?run `docker run --rm caddy:2-alpine caddy hash-password` and set ATHENA_ADMIN_PASSWORD_HASH in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Persisting these keeps Let's Encrypt from re-issuing on every restart,

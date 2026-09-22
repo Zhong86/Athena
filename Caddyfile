@@ -6,6 +6,26 @@
 	# handle_path strips the /api prefix, so FastAPI still sees its own routes
 	# (/health, /sessions, ...) and no router needs a prefix added.
 	handle_path /api/* {
+		# The connections endpoints accept a Google OAuth client secret and hand
+		# back a consent URL. Athena has no auth layer of its own -- single-user
+		# system -- so without this the one route that takes a credential would
+		# be open to the internet. Everything else here is quiz and materials
+		# data; this is not.
+		#
+		# Matched inside this block, and therefore against the already-stripped
+		# path: a second `handle_path /api/connections*` would strip that whole
+		# prefix too and the backend would see `/` instead of `/connections`.
+		#
+		# Αθηνα's own UI does not come through here -- the Settings page calls
+		# these from Server Actions on the compose network, which bypasses Caddy.
+		#
+		# Set ATHENA_ADMIN_USER and ATHENA_ADMIN_PASSWORD_HASH in .env. Generate
+		# the hash with a plain `docker run`, not `docker compose run` -- compose
+		# won't parse this file at all while the hash is still unset:
+		#   docker run --rm caddy:2-alpine caddy hash-password
+		basic_auth /connections* {
+			{$ATHENA_ADMIN_USER} {$ATHENA_ADMIN_PASSWORD_HASH}
+		}
 		reverse_proxy backend:8000
 	}
 

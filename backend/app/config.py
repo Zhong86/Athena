@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -16,10 +17,37 @@ class Settings(BaseSettings):
     api_server_key: str = ""
     hermes_session_key: str = "athena-local"
 
-    # Google OAuth (Drive scope only -- Drive-backed materials ingest)
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
+    # Where Hermes reads its credential files from, and how we get them there.
+    # Exactly one of these two is configured; see app/connections/hermes_files.py.
+    #
+    # local: a filesystem path the backend can write. In production Hermes runs
+    # on the same VPS, so this is the host's ~/.hermes bind-mounted into the
+    # container -- the credentials never touch a network.
+    hermes_config_path: Path | None = None
+    # sidecar: a remote Hermes box (debugging). Base URL of hermes-sidecar/.
+    hermes_files_url: str = ""
+    hermes_files_token: str = ""
+
+    # Encrypts `connections.secret` at rest (Fernet). Absent means the connect
+    # endpoints refuse to start a flow rather than writing a credential in
+    # plaintext -- see plans/athena-connections-plan_v.0.2.md §5.1.
+    connections_secret_key: str = ""
+
+    # Google OAuth. The client identity itself is uploaded by the user, not
+    # configured here -- these only shape the consent request.
+    #
+    # Drive read plus the address, which is the only way to label the connected
+    # account in the UI. Widen it here if a Hermes skill needs more; enabling
+    # extra APIs in the Cloud Console is harmless on its own.
+    google_oauth_scopes: str = (
+        "https://www.googleapis.com/auth/drive.readonly "
+        "https://www.googleapis.com/auth/userinfo.email"
+    )
+    # Desktop-app clients can only redirect to loopback (Google disabled the
+    # out-of-band flow in 2022). This is a port on the *user's* machine, and
+    # nothing listens on it: the browser fails to load and they copy the code
+    # out of the address bar. Pick something unlikely to be occupied.
+    google_loopback_port: int = 9004
 
     # Storage
     sqlite_path: Path = BACKEND_DIR / "data" / "athena.db"
@@ -43,9 +71,40 @@ class Settings(BaseSettings):
     # Dev port drifts when 3000 is taken by another project, so allow both.
     frontend_origin: str = "http://localhost:3000,http://localhost:3001"
 
+    @field_validator("hermes_config_path", mode="before")
+    @classmethod
+    def _normalise_hermes_config_path(cls, value: object) -> object:
+        """`HERMES_CONFIG_PATH=` must mean "unset", not `Path(".")`.
+
+        Both .env.example files tell sidecar users to leave this empty, and
+        pydantic would otherwise parse the empty string into the current working
+        directory -- which is truthy, so hermes_files would pick local mode and
+        write the credentials into the process's cwd instead of sending them to
+        the sidecar.
+
+        A relative path is anchored to BACKEND_DIR for the same reason the
+        storage paths above are: it otherwise lands wherever uvicorn happened to
+        be started from, which is the repo root in dev and /app in the
+        container. Credentials are not a thing to misplace.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        if value is None:
+            return None
+        path = Path(value)  # type: ignore[arg-type]
+        return path if path.is_absolute() else BACKEND_DIR / path
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.frontend_origin.split(",") if o.strip()]
+
+    @property
+    def google_scope_list(self) -> list[str]:
+        return [s.strip() for s in self.google_oauth_scopes.split() if s.strip()]
+
+    @property
+    def google_redirect_uri(self) -> str:
+        return f"http://localhost:{self.google_loopback_port}/"
 
 
 @lru_cache

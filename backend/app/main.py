@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from agent import embeddings, hermes
 from app.config import get_settings
+from app.connections import router as connections_router
 from app.dashboard import router as dashboard_router
 from app.db import connection, init_db
 from app.goals import router as goals_router
@@ -53,6 +54,7 @@ app.include_router(materials_router.router)
 app.include_router(goals_router.router)
 app.include_router(quizzes_router.router)
 app.include_router(dashboard_router.router)
+app.include_router(connections_router.router)
 
 
 @app.get("/health")

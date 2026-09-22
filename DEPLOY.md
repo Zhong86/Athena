@@ -48,14 +48,51 @@ nano .env
 
 `ATHENA_DOMAIN`'s A record must already point at this VPS — Caddy requests a
 certificate on first boot and the handshake fails if DNS has not propagated.
+No domain yet? See the comment above `ATHENA_DOMAIN` in `.env.example` for a
+free nip.io alternative that works immediately.
 
-### 4. Point DNS and open the firewall
+Generate `CONNECTIONS_SECRET_KEY` (encrypts stored OAuth credentials at rest)
+and paste it in:
+
+```bash
+docker run --rm python:3.13-slim sh -c \
+  "pip install -q cryptography && python -c \
+  'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+```
+
+Leave `ATHENA_ADMIN_PASSWORD_HASH` blank for now — it needs the `caddy` image,
+which step 4 pulls.
+
+### 4. Point DNS, open the firewall, and set the admin password
 
 ```bash
 sudo ufw allow 80,443/tcp
+docker run --rm caddy:2-alpine caddy hash-password
 ```
 
-### 5. Create a deploy key
+Run this with plain `docker run`, not `docker compose run` — Compose refuses
+to parse `docker-compose.yml` at all while `ATHENA_ADMIN_PASSWORD_HASH` is
+still unset in `.env`, since every service's `environment:` block is
+interpolated up front regardless of which service you're targeting.
+
+Paste the resulting hash into `.env` as `ATHENA_ADMIN_PASSWORD_HASH`,
+**doubling every `$`** (`$2a$14$abc` → `$$2a$$14$$abc`) — Compose treats a
+single `$` in `.env` as variable interpolation and silently truncates the hash
+otherwise. Set `ATHENA_ADMIN_USER` to whatever username you want; this pair
+gates `/api/connections*`, the one route that touches your Google OAuth
+secret.
+
+### 5. Point the backend at Hermes
+
+Hermes runs on this same VPS as its own process, outside Docker. The backend
+container reaches it at `http://host.docker.internal:8642` (already the
+default in `.env.example`) and writes its credential files straight into
+`~/.hermes` via the bind mount `HERMES_CONFIG_DIR` points at — set that to
+wherever Hermes' config directory actually is on this box. Nothing else here
+is needed unless Hermes lives on a *different* machine, in which case see
+`hermes-sidecar/README.md` instead.
+
+### 6. Create a deploy key
 
 On your laptop:
 
@@ -66,7 +103,7 @@ ssh-copy-id -i athena_deploy.pub <user>@<vps-host>
 
 The **private** key (`athena_deploy`) goes into the `VPS_SSH_KEY` secret.
 
-### 6. Create a GHCR read token
+### 7. Create a GHCR read token
 
 The VPS needs to pull from GHCR. Create a classic PAT with **`read:packages`**
 only, and store it as the `GHCR_TOKEN` secret.
@@ -139,6 +176,32 @@ docker run --rm -v athena_athena-data:/data -v $(pwd):/backup alpine \
 ```
 
 Worth putting on a cron job before the stack holds anything you care about.
+
+**Connect Google Drive** — done from the Settings page, not the shell. The
+browser will ask for the `ATHENA_ADMIN_USER` / password pair from step 4 only if
+you hit `/api/connections*` directly; Αθηνα's own UI calls those endpoints
+server-side, so the page itself just works.
+
+The flow is three steps and is explained inline: upload the Desktop-app client
+secret JSON from Google Cloud Console, open the consent link, then paste the
+address you land on back into the form. That page will fail to load — nothing
+listens on the loopback port, and the authorization code is in its address bar.
+Athena exchanges the code server-side and writes both files Hermes reads:
+
+```bash
+ls -l ~/.hermes/google_credentials.json ~/.hermes/google_token.json  # both 0600
+```
+
+Hermes refreshes the token itself from there. If it caches its config at
+startup, restart it once after connecting:
+
+```bash
+systemctl restart hermes   # or however Hermes is supervised on this box
+```
+
+Backing up `athena-data` also backs up an encrypted copy of these credentials.
+Restoring it onto a box with a different `CONNECTIONS_SECRET_KEY` leaves them
+undecryptable — Settings will say so, and reconnecting is the fix.
 
 ---
 
