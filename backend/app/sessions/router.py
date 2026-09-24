@@ -87,8 +87,15 @@ def delete_session(session_id: int) -> None:
 
 @router.post("/{session_id}/chat", response_model=ChatReply)
 async def chat(session_id: int, body: ChatRequest) -> ChatReply:
-    """One turn: persist the user message, call Hermes with the full
-    transcript, persist the reply."""
+    """One turn: persist the user message, run it through Hermes with the
+    prior transcript as context, persist the reply and its trace.
+
+    Goes through the Runs API rather than a bare completion so tool use (e.g.
+    a materials search) shows up as a real trace instead of vanishing into an
+    unaccountable reply -- see `agent.hermes.run`. 120s, matching
+    `goals.llm.ask_agent_json`: this blocks a waiting student, so a slow run
+    should fail rather than stall the composer.
+    """
     with connection() as conn:
         session = repo.get(conn, session_id)
         if session is None:
@@ -97,11 +104,13 @@ async def chat(session_id: int, body: ChatRequest) -> ChatReply:
             raise HTTPException(409, f"session {session_id} is a {session['type']} session")
         history = repo.transcript(session["payload"])
 
-    history.append({"role": "user", "content": body.message})
-
     try:
-        reply = await hermes.chat(
-            history, session_id=str(session_id), system=SYSTEM_PROMPT
+        result = await hermes.run(
+            body.message,
+            session_id=str(session_id),
+            instructions=SYSTEM_PROMPT,
+            conversation_history=history,
+            timeout=120.0,
         )
     except hermes.HermesError as exc:
         # The user's message is deliberately not persisted on failure, so a
@@ -114,8 +123,13 @@ async def chat(session_id: int, body: ChatRequest) -> ChatReply:
             session_id,
             [
                 {"role": "user", "content": body.message, "at": utc_now_iso()},
-                {"role": "assistant", "content": reply, "at": utc_now_iso()},
+                {
+                    "role": "assistant",
+                    "content": result.output,
+                    "at": utc_now_iso(),
+                    "trace": result.trace,
+                },
             ],
         )
 
-    return ChatReply(session_id=session_id, reply=reply)
+    return ChatReply(session_id=session_id, reply=result.output, trace=result.trace)

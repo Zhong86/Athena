@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { ApiError, sendChat, type ChatMessage } from "@/lib/api";
+import { SessionTrace } from "@/components/SessionTrace";
 
 import styles from "./transcript.module.css";
 
@@ -36,8 +37,8 @@ export function Transcript({
     setDraft("");
 
     try {
-      const { reply } = await sendChat(sessionId, message);
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const { reply, trace } = await sendChat(sessionId, message);
+      setMessages((prev) => [...prev, { role: "assistant", content: reply, trace }]);
     } catch (err) {
       setMessages((prev) => prev.slice(0, -1));
       setDraft(message);
@@ -58,14 +59,16 @@ export function Transcript({
         ) : null}
 
         {messages.map((message, i) => (
-          <div
-            key={i}
-            className={`${styles.bubble} ${
-              message.role === "user" ? styles.user : styles.assistant
-            }`}
-          >
-            {message.content}
-          </div>
+          <Fragment key={i}>
+            <div
+              className={`${styles.bubble} ${
+                message.role === "user" ? styles.user : styles.assistant
+              }`}
+            >
+              {message.content}
+            </div>
+            {message.trace?.length ? <SessionTrace trace={message.trace} /> : null}
+          </Fragment>
         ))}
 
         {pending ? (

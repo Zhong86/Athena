@@ -7,6 +7,8 @@ Backend talks to Hermes via [backend/agent/hermes.py](../backend/agent/hermes.py
 - `chat(messages, session_id, system)` / `complete(prompt, system)` — POST `/v1/chat/completions`, synchronous, full transcript each call, no tool use surfaced.
 - `run(prompt, session_id, instructions)` — POST `/v1/runs` + SSE event drain into `RunResult{run_id, status, output, trace}`. **Not called anywhere in production code today** — only exercised in tests. This is the intended hook for trace-visible background/agent work and currently has no caller.
 
+The reverse direction now exists too: Hermes talks to Athena via an MCP tool server mounted at `/mcp` (`backend/app/mcp_server.py`), bearer-token gated (`MCP_TOKEN`), currently exposing `search_materials`/`list_material_topics` over Materials.
+
 ---
 
 ## 1. Dashboard

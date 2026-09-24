@@ -40,3 +40,20 @@ pycparser==3.0
 google-auth==2.58.0
 pyasn1==0.6.4
 pyasn1-modules==0.4.2
+# MCP tool server exposed to Hermes (backend/app/mcp_server.py)
+mcp==2.2.0
+mcp-types==2.2.0
+attrs==26.1.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+opentelemetry-api==1.44.0
+PyJWT==2.15.0
+referencing==0.37.0
+rpds-py==2026.6.3
+sse-starlette==3.4.11
+# mcp's client transport imports httpx2 directly (a separate package from
+# httpx, already pulled in transitively by langsmith but never pinned) --
+# the test file imports it directly too, so pin it explicitly.
+httpx2==2.13.0
+httpcore2==2.13.0
+truststore==0.10.4

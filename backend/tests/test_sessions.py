@@ -62,31 +62,50 @@ def test_list_filters_by_type_and_paginates(client):
 
 
 def test_chat_persists_transcript(client, monkeypatch):
-    async def fake_chat(messages, *, session_id=None, system=None):
-        fake_chat.seen = {"messages": messages, "session_id": session_id, "system": system}
-        return "Entropy measures disorder."
+    async def fake_run(
+        prompt, *, session_id=None, instructions=None, conversation_history=None, timeout=900.0
+    ):
+        fake_run.seen = {
+            "prompt": prompt,
+            "session_id": session_id,
+            "instructions": instructions,
+            "conversation_history": conversation_history,
+        }
+        return hermes.RunResult(
+            run_id="run-1",
+            status="completed",
+            output="Entropy measures disorder.",
+            trace=[{"kind": "tool", "tool": "search_materials", "status": "ok"}],
+        )
 
-    monkeypatch.setattr(hermes, "chat", fake_chat)
+    monkeypatch.setattr(hermes, "run", fake_run)
 
     sid = client.post("/sessions", json={"type": "chat"}).json()["id"]
     resp = client.post(f"/sessions/{sid}/chat", json={"message": "what is entropy?"})
     assert resp.status_code == 200, resp.text
-    assert resp.json()["reply"] == "Entropy measures disorder."
+    body = resp.json()
+    assert body["reply"] == "Entropy measures disorder."
+    assert body["trace"][0]["tool"] == "search_materials"
 
-    # our session id is forwarded for correlation
-    assert fake_chat.seen["session_id"] == str(sid)
-    assert fake_chat.seen["system"]
+    # our session id is forwarded for correlation, and only the new message is
+    # the prompt -- prior turns (none yet) travel as conversation_history
+    assert fake_run.seen["session_id"] == str(sid)
+    assert fake_run.seen["instructions"]
+    assert fake_run.seen["prompt"] == "what is entropy?"
+    assert fake_run.seen["conversation_history"] == []
 
     stored = client.get(f"/sessions/{sid}").json()["payload"]["messages"]
     assert [m["role"] for m in stored] == ["user", "assistant"]
     assert all("at" in m for m in stored)
+    assert stored[1]["trace"][0]["tool"] == "search_materials"
 
-    # second turn must send the prior transcript back
+    # second turn must send the prior transcript back as history, not as the prompt
     client.post(f"/sessions/{sid}/chat", json={"message": "and enthalpy?"})
-    roles = [m["role"] for m in fake_chat.seen["messages"]]
-    assert roles == ["user", "assistant", "user"]
+    assert fake_run.seen["prompt"] == "and enthalpy?"
+    roles = [m["role"] for m in fake_run.seen["conversation_history"]]
+    assert roles == ["user", "assistant"]
     # stored metadata must not leak into the Hermes payload
-    assert all(set(m) == {"role", "content"} for m in fake_chat.seen["messages"])
+    assert all(set(m) == {"role", "content"} for m in fake_run.seen["conversation_history"])
 
     stored = client.get(f"/sessions/{sid}").json()["payload"]["messages"]
     assert len(stored) == 4
@@ -107,10 +126,12 @@ def test_chat_rejects_empty_message(client):
 
 
 def test_hermes_failure_is_502_and_does_not_persist(client, monkeypatch):
-    async def boom(messages, *, session_id=None, system=None):
+    async def boom(
+        prompt, *, session_id=None, instructions=None, conversation_history=None, timeout=900.0
+    ):
         raise hermes.HermesError("connection refused")
 
-    monkeypatch.setattr(hermes, "chat", boom)
+    monkeypatch.setattr(hermes, "run", boom)
 
     sid = client.post("/sessions", json={"type": "chat"}).json()["id"]
     resp = client.post(f"/sessions/{sid}/chat", json={"message": "hello"})

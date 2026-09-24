@@ -17,13 +17,20 @@ from app.goals.state import MAX_CLARIFY_TURNS, RoadmapState
 log = logging.getLogger(__name__)
 
 
-def _prompt(raw_goal: str, turns: list[dict]) -> str:
+def _prompt(raw_goal: str, turns: list[dict], known_topics: list[str]) -> str:
     transcript = (
         "\n".join(f"Q: {t['question']}\nA: {t['answer']}" for t in turns)
         or "  (nothing asked yet)"
     )
+    topics_line = (
+        f"The student has uploaded material on: {', '.join(known_topics)}."
+        if known_topics
+        else "The student has not uploaded any material yet."
+    )
     return f"""A student stated this goal:
 "{raw_goal}"
+
+{topics_line}
 
 Clarification so far:
 {transcript}
@@ -39,7 +46,7 @@ Reply with JSON:
   "clarified_goal": "one sentence restating the goal precisely, or null",
   "extracted": {{
     "short_name": "3-4 word label for navigation, e.g. Thermo midterm",
-    "course_code": "e.g. CHEM 2010, or null",
+    "course_code": "the course/class name or code if known, else null",
     "category": "academic" | "career",
     "due_at": "YYYY-MM-DD or null",
     "derivation": "one clause on what this was derived from, or null"
@@ -47,8 +54,11 @@ Reply with JSON:
 }}
 
 Ask only what changes the roadmap. Never ask for something the student already
-said. If two rounds of questions have not settled it, set needs_clarification to
-false and commit to your best reading."""
+said. When a question is about which subject or topic, prefer the student's
+uploaded topics above as suggested answers over a generic guess -- but only
+where one plausibly fits; do not force-fit an unrelated topic onto the goal. If
+two rounds of questions have not settled it, set needs_clarification to false
+and commit to your best reading."""
 
 
 def _fallback_goal(state: RoadmapState, turns: list[dict]) -> str:
@@ -101,7 +111,7 @@ def clarify_intent(state: RoadmapState) -> dict[str, Any]:
         }
 
     try:
-        reply = ask_json(_prompt(state["raw_goal_input"], turns))
+        reply = ask_json(_prompt(state["raw_goal_input"], turns, state.get("known_topics") or []))
     except LLMUnavailable as exc:
         # Proceed on the student's own words rather than stranding the run. A
         # dead gateway will surface at decomposition, which cannot degrade.

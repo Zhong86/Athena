@@ -243,6 +243,7 @@ async def run(
     *,
     session_id: str | None = None,
     instructions: str | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
     timeout: float = 900.0,
 ) -> RunResult:
     """Start a long-form agent run and collect its trace once it finishes.
@@ -250,6 +251,11 @@ async def run(
     Persist-then-render: we subscribe to the SSE event stream, fold it into a
     trace, and hand the caller a finished object to store. Nothing here is
     live -- Knowledge-Sync reads the stored trace back out of `sessions`.
+
+    `conversation_history` carries prior turns the same way `chat()`'s
+    `messages` does; `prompt` is only the new turn. Athena's `sessions` row
+    stays the source of truth, so this is sent fresh every call rather than
+    relying on X-Hermes-Session-Id to replay it.
 
     Caveat worth knowing: the event subscription opens *after* POST /v1/runs
     returns, and the docs do not say whether the stream replays events that
@@ -262,6 +268,8 @@ async def run(
         body["session_id"] = session_id
     if instructions:
         body["instructions"] = instructions
+    if conversation_history:
+        body["conversation_history"] = conversation_history
 
     headers = _headers(session_id)
     base = settings.hermes_base_url

@@ -82,7 +82,7 @@ export default async function GoalDetailPage(props: { params: Promise<{ id: stri
           <div className={styles.titleLine} style={{ marginBottom: 10 }}>
             <span className={`${styles.statusPill} ${styles[pill.tone]}`}>{pill.label}</span>
           </div>
-          <h1>{goal.title}</h1>
+          <h1>{goal.short_name || goal.title}</h1>
           <p>
             Built from what is in Materials and how you are scoring — not a plan you
             wrote, one Αθηνα is keeping current.

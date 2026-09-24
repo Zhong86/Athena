@@ -57,6 +57,10 @@ class RoadmapState(TypedDict):
 
     # step 1: clarify
     raw_goal_input: str
+    # Topic names with material behind them, fetched once at graph start so
+    # clarify_intent can offer real subjects instead of guessing generic ones.
+    # Not the richer `materials_context` used later -- see context.py.
+    known_topics: NotRequired[list[str]]
     clarifying_questions: NotRequired[list[str]]
     # Quick-reply chips for the parked questions, one list per question. Parked
     # with them because the pass that generates questions and the pass that
@@ -93,15 +97,22 @@ class RoadmapState(TypedDict):
 
 
 def new_state(
-    raw_goal_input: str, *, user_id: str = "local", session_id: str = ""
+    raw_goal_input: str,
+    *,
+    user_id: str = "local",
+    session_id: str = "",
+    known_topics: list[str] | None = None,
 ) -> RoadmapState:
-    return {
+    state: RoadmapState = {
         "user_id": user_id,
         "session_id": session_id,
         "raw_goal_input": raw_goal_input,
         "status": "clarifying",
         "clarification_turns": [],
     }
+    if known_topics:
+        state["known_topics"] = known_topics
+    return state
 
 
 # --------------------------------------------------------------------------

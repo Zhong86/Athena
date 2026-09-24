@@ -20,6 +20,7 @@ from langgraph.types import Command
 from app.db import connection
 from app.goals import repository as repo
 from app.goals import view
+from app.goals.context import known_topic_names
 from app.goals.graph import compiled
 from app.goals.llm import LLMUnavailable
 from app.goals.schemas import (
@@ -80,9 +81,11 @@ async def start_roadmap(body: StartRoadmap) -> RoadmapEnvelope:
     thread_id = f"roadmap-{uuid.uuid4().hex[:12]}"
     with connection() as conn:
         repo.create_run(conn, thread_id=thread_id, raw_goal_input=body.raw_goal_input)
+        topics = known_topic_names(conn)
 
     result = await _invoke(
-        thread_id, new_state(body.raw_goal_input, session_id=body.session_id)
+        thread_id,
+        new_state(body.raw_goal_input, session_id=body.session_id, known_topics=topics),
     )
     envelope = _envelope(thread_id, result)
     with connection() as conn:

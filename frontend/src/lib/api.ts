@@ -16,7 +16,13 @@ export const API_BASE =
 /** Matches the CHECK constraint on sessions.type. */
 export type SessionType = "chat" | "quiz" | "cron" | "agent_action";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string; at?: string };
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  at?: string;
+  /** Present on an assistant turn that went through the Runs API. */
+  trace?: TraceEntry[];
+};
 
 /**
  * One step of a Hermes run, as folded by `agent/hermes.py`. Persisted with the
@@ -150,7 +156,7 @@ export function deleteSession(id: number): Promise<void> {
 export function sendChat(
   id: number,
   message: string,
-): Promise<{ session_id: number; reply: string }> {
+): Promise<{ session_id: number; reply: string; trace: TraceEntry[] }> {
   return request(`/sessions/${id}/chat`, {
     method: "POST",
     body: JSON.stringify({ message }),

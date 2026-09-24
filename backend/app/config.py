@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     hermes_files_url: str = ""
     hermes_files_token: str = ""
 
+    # Bearer token Hermes must send to call Athena's MCP tool server (see
+    # app/mcp_server.py, mounted at /mcp). Empty means /mcp refuses every
+    # request with 503 rather than running open -- same posture as
+    # hermes_files_token / hermes-sidecar's require_token.
+    mcp_token: str = ""
+
     # Encrypts `connections.secret` at rest (Fernet). Absent means the connect
     # endpoints refuse to start a flow rather than writing a credential in
     # plaintext -- see plans/athena-connections-plan_v.0.2.md §5.1.
@@ -55,6 +61,10 @@ class Settings(BaseSettings):
     # Original uploaded bytes, kept so a failed extract can be retried without
     # asking the user to upload again.
     uploads_path: Path = BACKEND_DIR / "data" / "uploads"
+    # A drop folder the user can put files into directly, outside the upload
+    # API. The gather graph (app/materials/gather/) scans it; an accepted file
+    # is moved into uploads_path, a rejected one into <this>/.skipped/.
+    materials_inbox_path: Path = BACKEND_DIR / "data" / "materials_inbox"
     # Pinned so the ~130MB ONNX download lands inside the project rather than in
     # the ambient HF cache -- matters on a fresh VPS where $HOME may be wiped.
     fastembed_cache: Path = BACKEND_DIR / "data" / "models"
@@ -66,6 +76,16 @@ class Settings(BaseSettings):
     # Off in tests: warming downloads ~130MB on a cold cache, which no test
     # should ever trigger.
     warm_embeddings: bool = True
+
+    # Materials gather (cron-triggered auto-discovery)
+    # Placeholders -- tune once real Drive/inbox volume is seen.
+    materials_gather_max_imports: int = 20
+    materials_gather_drive_scan_cap: int = 300
+    materials_gather_lookback_days: int = 30
+    # Shared secret for POST /materials/gather/run. Empty means the endpoint
+    # refuses every request -- an unauthenticated auto-import-and-ingest
+    # endpoint must not be reachable by default.
+    materials_gather_token: str = ""
 
     # Frontend origins allowed through CORS (comma-separated).
     # Dev port drifts when 3000 is taken by another project, so allow both.

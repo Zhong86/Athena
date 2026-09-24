@@ -1,5 +1,5 @@
 import logging
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import anyio.to_thread
 from fastapi import FastAPI
@@ -7,12 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agent import embeddings, hermes
+from app import mcp_server
 from app.config import get_settings
 from app.connections import router as connections_router
 from app.dashboard import router as dashboard_router
 from app.db import connection, init_db
 from app.goals import router as goals_router
 from app.materials import router as materials_router
+from app.materials.gather import router as materials_gather_router
 from app.migrations import current_version, pending_count
 from app.quizzes import router as quizzes_router
 from app.sessions import router as sessions_router
@@ -21,21 +23,32 @@ from app.sessions import router as sessions_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    if get_settings().warm_embeddings:
-        # In a thread, and failures are logged rather than raised: a missing
-        # model download should degrade ingestion, not stop the API booting.
-        async def _warm() -> None:
-            try:
-                await anyio.to_thread.run_sync(embeddings.warm)
-            except Exception:
-                logging.getLogger(__name__).exception("embedding model warm-up failed")
+    # Mount() does not forward ASGI lifespan events to a mounted sub-app --
+    # the MCP session manager's task group needs its own run() entered
+    # explicitly, or every /mcp request fails with "Task group is not
+    # initialized. Make sure to use run()." Built fresh each time (not
+    # reused) since its session manager's run() can only be entered once per
+    # instance -- see mcp_server.build_app.
+    mcp_app = mcp_server.build_app()
+    mcp_server.app.current = mcp_app
+    async with AsyncExitStack() as stack:
+        await stack.enter_async_context(mcp_app.router.lifespan_context(mcp_app))
 
-        async with anyio.create_task_group() as tg:
-            tg.start_soon(_warm)
+        if get_settings().warm_embeddings:
+            # In a thread, and failures are logged rather than raised: a missing
+            # model download should degrade ingestion, not stop the API booting.
+            async def _warm() -> None:
+                try:
+                    await anyio.to_thread.run_sync(embeddings.warm)
+                except Exception:
+                    logging.getLogger(__name__).exception("embedding model warm-up failed")
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(_warm)
+                yield
+                tg.cancel_scope.cancel()
+        else:
             yield
-            tg.cancel_scope.cancel()
-    else:
-        yield
 
 
 app = FastAPI(title="Athena", version="0.1.0", lifespan=lifespan)
@@ -51,10 +64,13 @@ app.add_middleware(
 
 app.include_router(sessions_router.router)
 app.include_router(materials_router.router)
+app.include_router(materials_gather_router.router)
 app.include_router(goals_router.router)
 app.include_router(quizzes_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(connections_router.router)
+
+app.mount("/mcp", mcp_server.app)
 
 
 @app.get("/health")

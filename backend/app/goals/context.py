@@ -41,3 +41,24 @@ def materials_context(conn: sqlite3.Connection) -> dict[str, Any]:
             for row in rows
         ]
     }
+
+
+def known_topic_names(conn: sqlite3.Connection) -> list[str]:
+    """Topic names backed by at least one chunk -- what `clarify_intent` can
+    name back to the student when guessing a course/subject.
+
+    Deliberately not `materials_context()`: that carries understanding scores
+    and descriptions clarify_intent has no use for, and a topic with zero
+    chunks (freshly auto-created, or left over) is worse to suggest than no
+    suggestion at all.
+    """
+    rows = conn.execute(
+        """
+        SELECT t.name
+        FROM topics t
+        JOIN chunks c ON c.topic_id = t.id
+        GROUP BY t.id
+        ORDER BY t.name
+        """
+    ).fetchall()
+    return [row["name"] for row in rows]

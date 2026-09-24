@@ -43,3 +43,4 @@ class ChatRequest(BaseModel):
 class ChatReply(BaseModel):
     session_id: int
     reply: str
+    trace: list[dict[str, Any]] = Field(default_factory=list)

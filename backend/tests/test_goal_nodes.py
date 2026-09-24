@@ -116,6 +116,22 @@ def test_clarify_folds_answers_into_the_fallback_goal(hermes_dead):
     assert clarify_intent(state)["clarified_goal"] == "pass the midterm CHEM 2010"
 
 
+def test_clarify_passes_known_topics_to_hermes(monkeypatch):
+    """Without this, the model has nothing to ground a course/subject guess in
+    and falls back to generic academic examples (Chemistry, Physics, ...)."""
+    captured = {}
+
+    async def complete(prompt: str, *, system: str | None = None) -> str:
+        captured["prompt"] = prompt
+        return json.dumps({"needs_clarification": False, "clarified_goal": "g", "extracted": {}})
+
+    monkeypatch.setattr("agent.hermes.complete", complete)
+    state = new_state("quiz me", known_topics=["Dynamic Programming", "Graph Algorithms"])
+    clarify_intent(state)
+    assert "Dynamic Programming" in captured["prompt"]
+    assert "Graph Algorithms" in captured["prompt"]
+
+
 def test_clarify_extracts_the_goal_fields_commit_needs(hermes_says):
     hermes_says(
         {
