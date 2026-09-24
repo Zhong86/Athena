@@ -20,11 +20,25 @@ os.environ["UPLOADS_PATH"] = str(_TMP / "uploads")
 os.environ["MATERIALS_INBOX_PATH"] = str(_TMP / "materials_inbox")
 os.environ["MATERIALS_GATHER_TOKEN"] = "test-gather-token"
 os.environ["WARM_EMBEDDINGS"] = "false"
+# Explicit, not just "unset": a developer's local backend/.env may well have
+# TEST_MODE=true for their own use of the reset button, and this file must
+# not inherit that -- TestTestModeReset flips it on per-test, deliberately.
+os.environ["TEST_MODE"] = "false"
+
+from app.config import get_settings  # noqa: E402
+
+# get_settings() is process-wide @lru_cache'd, and another test module
+# collected before this one (test_materials.py, alphabetically) may already
+# have imported app.main and cached a Settings built from backend/.env's real
+# values -- notably a real MATERIALS_GATHER_TOKEN, which would make every
+# X-Gather-Token check in this file fail against a token it never set.
+# Clearing here, before app.main is (re-)imported below, forces the next
+# get_settings() call to read the environment as this file has just set it.
+get_settings.cache_clear()
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from agent import embeddings, hermes  # noqa: E402
-from app.config import get_settings  # noqa: E402
 from app.connections import google_drive  # noqa: E402
 from app.db import connection, init_db  # noqa: E402
 from app.main import app  # noqa: E402
@@ -341,3 +355,392 @@ class TestDrive:
         with connection() as conn:
             after_cursor = gather_repo.start_run(conn)["drive_cursor"]
         assert after_cursor == before_cursor
+
+
+FOLDER_META = {
+    "id": "folder-abc123",
+    "name": "CHEM 2010",
+    "mimeType": "application/vnd.google-apps.folder",
+}
+
+
+class TestFolderConfig:
+    def test_default_is_no_restriction(self, client):
+        resp = client.get("/materials/gather/config")
+        assert resp.status_code == 200
+        assert resp.json() == {"folder_id": None, "folder_name": None}
+
+    def test_set_folder_resolves_against_drive_and_persists(self, client, monkeypatch):
+        async def fake_token():
+            return "fake-token"
+
+        async def fake_get_file(token, file_id):
+            assert file_id == FOLDER_META["id"]
+            return FOLDER_META
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "get_file", fake_get_file)
+
+        resp = client.put(
+            "/materials/gather/config",
+            json={"folder": f"https://drive.google.com/drive/folders/{FOLDER_META['id']}?usp=sharing"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"folder_id": FOLDER_META["id"], "folder_name": "CHEM 2010"}
+
+        # Persisted -- a fresh GET sees it too, not just the PUT's own response.
+        assert client.get("/materials/gather/config").json()["folder_id"] == FOLDER_META["id"]
+
+        resp = client.delete("/materials/gather/config")
+        assert resp.status_code == 200
+        assert resp.json() == {"folder_id": None, "folder_name": None}
+
+    def test_non_folder_is_rejected(self, client, monkeypatch):
+        async def fake_token():
+            return "fake-token"
+
+        async def fake_get_file(token, file_id):
+            return {"id": file_id, "name": "not a folder.txt", "mimeType": "text/plain"}
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "get_file", fake_get_file)
+
+        resp = client.put("/materials/gather/config", json={"folder": "not-a-folder-id"})
+        assert resp.status_code == 400
+        assert "not a Drive folder" in resp.json()["detail"]
+
+    def test_garbage_input_is_rejected_before_any_drive_call(self, client, monkeypatch):
+        calls = []
+
+        async def counting_token():
+            calls.append(1)
+            return "fake-token"
+
+        monkeypatch.setattr(google_drive, "access_token", counting_token)
+
+        resp = client.put(
+            "/materials/gather/config", json={"folder": "https://example.com/not/a/drive/link"}
+        )
+        assert resp.status_code == 400
+        assert calls == []
+
+    def test_drive_not_connected_gives_409(self, client):
+        # `no_drive` (autouse) leaves Drive disconnected by default.
+        resp = client.put(
+            "/materials/gather/config",
+            json={"folder": f"https://drive.google.com/drive/folders/{FOLDER_META['id']}"},
+        )
+        assert resp.status_code == 409
+
+
+class TestFolderScopesDriveQuery:
+    def test_configured_folder_narrows_the_drive_query(self, client, monkeypatch):
+        with connection() as conn:
+            gather_repo.set_drive_folder(
+                conn, folder_id=FOLDER_META["id"], folder_name=FOLDER_META["name"]
+            )
+
+        seen_queries = []
+
+        async def fake_token():
+            return "fake-token"
+
+        async def fake_list_files(token, *, query, page_token=None, page_size=50):
+            seen_queries.append(query)
+            return {"files": [], "nextPageToken": None}
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "list_files", fake_list_files)
+
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        assert seen_queries
+        assert f"'{FOLDER_META['id']}' in parents" in seen_queries[0]
+
+        with connection() as conn:
+            gather_repo.clear_drive_folder(conn)
+
+
+_PARENT_RE = re.compile(r"'([^']+)' in parents")
+
+
+class TestFolderRecursion:
+    """Drive's API has no recursive folder search -- scan_drive.py walks the
+    tree itself. Each test uses its own file/folder ids, distinct from every
+    other test in this file: `source_ids_by_drive_id` dedup is global to the
+    shared test DB, and a ready-made file id created above the class it does
+    not belong to would be misclassified as drive_refresh here."""
+
+    def _connect(self, monkeypatch, *, tree, files, folder_cap=None):
+        if folder_cap is not None:
+            monkeypatch.setattr(get_settings(), "materials_gather_drive_folder_cap", folder_cap)
+
+        async def fake_token():
+            return "fake-token"
+
+        async def fake_list_files(token, *, query, page_token=None, page_size=50):
+            match = _PARENT_RE.search(query)
+            parent_id = match.group(1) if match else None
+            if "vnd.google-apps.folder" in query:
+                children = [
+                    {"id": cid, "name": cid, "mimeType": "application/vnd.google-apps.folder"}
+                    for cid in tree.get(parent_id, [])
+                ]
+                return {"files": children, "nextPageToken": None}
+            return {"files": files.get(parent_id, []), "nextPageToken": None}
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "list_files", fake_list_files)
+
+    def test_files_in_a_subfolder_are_found(self, client, monkeypatch):
+        tree = {"root-a": ["sub-a"], "sub-a": []}
+        files = {
+            "root-a": [
+                {
+                    "id": "direct-a",
+                    "name": "direct.txt",
+                    "mimeType": "text/plain",
+                    "modifiedTime": "2026-09-22T00:00:00Z",
+                }
+            ],
+            "sub-a": [
+                {
+                    "id": "nested-a",
+                    "name": "nested.txt",
+                    "mimeType": "text/plain",
+                    "modifiedTime": "2026-09-22T00:00:00Z",
+                }
+            ],
+        }
+
+        with connection() as conn:
+            gather_repo.set_drive_folder(conn, folder_id="root-a", folder_name="Root")
+        self._connect(monkeypatch, tree=tree, files=files)
+
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["imported_file_ids"]) == 2
+
+        with connection() as conn:
+            names = {
+                repo.get_source_file(conn, fid)["filename"] for fid in body["imported_file_ids"]
+            }
+            gather_repo.clear_drive_folder(conn)
+        assert names == {"direct.txt", "nested.txt"}
+
+    def test_folder_cap_stops_the_walk_before_the_subfolder(self, client, monkeypatch):
+        tree = {"root-b": ["sub-b"], "sub-b": []}
+        files = {
+            "root-b": [
+                {
+                    "id": "direct-b",
+                    "name": "direct.txt",
+                    "mimeType": "text/plain",
+                    "modifiedTime": "2026-09-22T00:00:00Z",
+                }
+            ],
+            "sub-b": [
+                {
+                    "id": "nested-b",
+                    "name": "nested.txt",
+                    "mimeType": "text/plain",
+                    "modifiedTime": "2026-09-22T00:00:00Z",
+                }
+            ],
+        }
+
+        with connection() as conn:
+            gather_repo.set_drive_folder(conn, folder_id="root-b", folder_name="Root")
+        self._connect(monkeypatch, tree=tree, files=files, folder_cap=1)
+
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        body = resp.json()
+
+        with connection() as conn:
+            names = {
+                repo.get_source_file(conn, fid)["filename"] for fid in body["imported_file_ids"]
+            }
+            gather_repo.clear_drive_folder(conn)
+        # Only root-b itself was visited -- direct.txt is found, nested.txt
+        # (inside sub-b, which the cap never reached) is not.
+        assert names == {"direct.txt"}
+
+
+class TestSessionLogging:
+    def test_run_writes_a_findable_knowledge_sync_session(self, client):
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["candidates_seen"] == 0
+
+        session = client.get(f"/sessions/{body['session_id']}").json()
+        assert session["type"] == "cron"
+        assert session["title"] == "Materials gather"
+        # Zero candidates is the common case on a healthy schedule and must
+        # not read as "0 of 0", which looks broken rather than idle.
+        assert session["summary"] == "Nothing new since the last sync"
+
+        listed = client.get("/sessions?type=cron").json()["items"]
+        assert any(s["id"] == body["session_id"] for s in listed)
+
+    def test_a_run_with_candidates_gets_an_itemised_summary(self, client):
+        _drop_inbox_file("summary check.txt")
+
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["candidates_seen"] > 0
+
+        session = client.get(f"/sessions/{body['session_id']}").json()
+        assert str(body["candidates_seen"]) in session["summary"]
+        assert "imported" in session["summary"]
+
+
+class TestRunMaterials:
+    """GET /materials/gather/runs/{session_id} -- the topics-acquired view."""
+
+    def test_topics_and_files_for_an_imported_file(self, client):
+        _drop_inbox_file(
+            "chem notes.txt",
+            "Some study notes about entropy and the second law of thermodynamics.",
+        )
+
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["imported_file_ids"]) == 1
+
+        detail = client.get(f"/materials/gather/runs/{body['session_id']}").json()
+        assert detail["session_id"] == body["session_id"]
+        assert detail["skipped"] == []
+        assert detail["pending"] == []
+        assert detail["removed"] == []
+
+        # `stubs`' tagger fixture assigns every chunk to a single "Gathered"
+        # topic -- one topic, one file, at least one chunk.
+        assert len(detail["topics"]) == 1
+        topic = detail["topics"][0]
+        assert topic["topic_name"] == "Gathered"
+        assert len(topic["files"]) == 1
+
+        file_row = topic["files"][0]
+        assert file_row["source_file_id"] == body["imported_file_ids"][0]
+        assert file_row["filename"] == "chem notes.txt"
+        assert file_row["origin"] == "local"
+        assert file_row["chunk_count"] >= 1
+
+    def test_skipped_files_are_listed_but_never_become_a_topic(self, client):
+        _drop_inbox_file("irrelevant memo.txt", "an irrelevant personal file")
+
+        resp = _run_gather(client)
+        body = resp.json()
+        assert body["imported_file_ids"] == []
+
+        detail = client.get(f"/materials/gather/runs/{body['session_id']}").json()
+        assert detail["topics"] == []
+        assert detail["pending"] == []
+        assert detail["removed"] == []
+        assert detail["skipped"] == ["irrelevant memo.txt"]
+
+    def test_a_file_deleted_after_the_run_shows_up_as_removed_not_vanished(self, client):
+        """A run's own summary line ("1 imported ...") must never contradict
+        its detail view -- deleting the file afterward (an ordinary action on
+        the Materials page) must not make the run look like it added nothing."""
+        _drop_inbox_file(
+            "will be deleted.txt",
+            "Notes on reaction kinetics and rate laws for the exam.",
+        )
+
+        resp = _run_gather(client)
+        body = resp.json()
+        assert len(body["imported_file_ids"]) == 1
+
+        assert client.delete(f"/materials/uploads/{body['imported_file_ids'][0]}").status_code == 204
+
+        detail = client.get(f"/materials/gather/runs/{body['session_id']}").json()
+        assert detail["topics"] == []
+        assert detail["pending"] == []
+        assert detail["removed"] == ["will be deleted.txt"]
+
+    def test_unknown_session_is_404(self, client):
+        assert client.get("/materials/gather/runs/999999").status_code == 404
+
+    def test_a_non_gather_cron_session_is_404(self, client):
+        """The discriminator is `payload.kind`, not just `type == 'cron'` --
+        a future Hermes-driven finding sharing the type must not be openable
+        through this endpoint, which assumes gather's payload shape."""
+        with connection() as conn:
+            row = conn.execute(
+                "INSERT INTO sessions (type, summary) VALUES ('cron', 'unrelated finding') "
+                "RETURNING id"
+            ).fetchone()
+
+        resp = client.get(f"/materials/gather/runs/{row['id']}")
+        assert resp.status_code == 404
+
+
+class TestTestModeReset:
+    """GET /materials/gather/test-mode, POST /materials/gather/reset.
+    TEST_MODE is off by default in this file's environment (not set above),
+    so the "off" behaviour is exercised first, then flipped on per-test via
+    monkeypatch -- never left on for a test it didn't ask for."""
+
+    def test_test_mode_is_off_by_default(self, client):
+        assert client.get("/materials/gather/test-mode").json() == {"enabled": False}
+
+    def test_reset_is_404_outside_test_mode(self, client):
+        resp = client.post("/materials/gather/reset")
+        assert resp.status_code == 404
+
+    def test_reset_wipes_materials_and_gather_state_but_not_other_sessions(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setattr(get_settings(), "test_mode", True)
+        assert client.get("/materials/gather/test-mode").json() == {"enabled": True}
+
+        # Materials: a real, tagged upload.
+        _upload = client.post(
+            "/materials/uploads/text",
+            json={
+                "filename": "reset check.txt",
+                "text": "Notes on reaction kinetics for the reset test, long enough to chunk.",
+            },
+        )
+        assert _upload.status_code == 202
+        assert client.get("/materials/topics").json()
+
+        # Gather state: a folder scope and a run log entry.
+        with connection() as conn:
+            gather_repo.set_drive_folder(conn, folder_id="folder-x", folder_name="Folder X")
+            gather_repo.start_run(conn)
+
+        # A gather-produced session, and an unrelated cron session that must
+        # survive -- the reset is scoped to what gather itself produced, not
+        # every row sharing its `type`.
+        gather_resp = _run_gather(client)
+        assert gather_resp.status_code == 200
+        with connection() as conn:
+            unrelated = conn.execute(
+                "INSERT INTO sessions (type, summary) VALUES ('cron', 'not from gather') "
+                "RETURNING id"
+            ).fetchone()
+
+        resp = client.post("/materials/gather/reset")
+        assert resp.status_code == 204
+
+        assert client.get("/materials/topics").json() == []
+        assert client.get("/materials/uploads").json() == []
+        assert client.get("/materials/gather/config").json() == {
+            "folder_id": None,
+            "folder_name": None,
+        }
+        assert client.get(f"/materials/gather/runs/{gather_resp.json()['session_id']}").status_code == 404
+
+        with connection() as conn:
+            assert conn.execute("SELECT COUNT(*) c FROM materials_gather_runs").fetchone()["c"] == 0
+            assert conn.execute("SELECT COUNT(*) c FROM chunks").fetchone()["c"] == 0
+
+        # The unrelated session was never gather's to delete.
+        assert client.get(f"/sessions/{unrelated['id']}").status_code == 200

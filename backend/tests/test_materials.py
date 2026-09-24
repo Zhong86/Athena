@@ -446,3 +446,84 @@ class TestDriveOrigin:
                 repo.create_source_file(
                     conn, filename="x.pdf", upload_type="pdf", origin="dropbox"
                 )
+
+
+class TestTopicManagement:
+    """PATCH/DELETE /materials/topics/{id}. Uses its own topic + chunk, built
+    directly rather than through upload (the shared `fake_complete` stub only
+    ever tags to "Entropy" or "Titration", per test_chunks_are_tagged_and_embedded
+    et al) -- renaming or deleting those would break every other test in this
+    module that depends on them still existing."""
+
+    def _topic_with_a_chunk(self, conn, *, name: str) -> tuple[dict, dict]:
+        topic = repo.create_topic(conn, name=name, description="scratch topic")
+        source_file = repo.create_source_file(
+            conn, filename="scratch.txt", upload_type="text"
+        )
+        conn.execute(
+            "INSERT INTO chunks (source_file_id, topic_id, text, order_index) "
+            "VALUES (?, ?, ?, 0)",
+            (source_file["id"], topic["id"], "scratch chunk text"),
+        )
+        return topic, source_file
+
+    def test_rename_and_redescribe(self, client):
+        with connection() as conn:
+            topic, _ = self._topic_with_a_chunk(conn, name="Scratch Rename Me")
+
+        resp = client.patch(
+            f"/materials/topics/{topic['id']}",
+            json={"name": "Scratch Renamed", "description": "a new description"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "Scratch Renamed"
+        assert body["description"] == "a new description"
+        # The point of returning counts here rather than a bare row: a caller
+        # that only patches the name must not see chunk_count reset to 0.
+        assert body["chunk_count"] == 1
+        assert body["source_count"] == 1
+
+    def test_partial_update_leaves_the_other_field_alone(self, client):
+        with connection() as conn:
+            topic, _ = self._topic_with_a_chunk(conn, name="Scratch Partial")
+
+        resp = client.patch(
+            f"/materials/topics/{topic['id']}", json={"description": "only this changed"}
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "Scratch Partial"
+        assert body["description"] == "only this changed"
+
+    def test_renaming_onto_an_existing_name_is_409(self, client):
+        with connection() as conn:
+            self._topic_with_a_chunk(conn, name="Scratch Taken")
+            other, _ = self._topic_with_a_chunk(conn, name="Scratch Other")
+
+        resp = client.patch(f"/materials/topics/{other['id']}", json={"name": "Scratch Taken"})
+        assert resp.status_code == 409
+
+    def test_update_on_missing_topic_is_404(self, client):
+        assert client.patch("/materials/topics/999999", json={"name": "x"}).status_code == 404
+
+    def test_delete_untags_but_keeps_the_chunk_and_file(self, client):
+        with connection() as conn:
+            topic, source_file = self._topic_with_a_chunk(conn, name="Scratch Delete Me")
+
+        resp = client.delete(f"/materials/topics/{topic['id']}")
+        assert resp.status_code == 204
+        assert client.get(f"/materials/topics/{topic['id']}").status_code == 404
+
+        with connection() as conn:
+            chunk = conn.execute(
+                "SELECT * FROM chunks WHERE source_file_id = ?", (source_file["id"],)
+            ).fetchone()
+        # Un-tagged, not gone -- deleting a topic must not touch what the
+        # student actually uploaded.
+        assert chunk is not None
+        assert chunk["topic_id"] is None
+        assert client.get(f"/materials/uploads/{source_file['id']}").status_code == 200
+
+    def test_delete_on_missing_topic_is_404(self, client):
+        assert client.delete("/materials/topics/999999").status_code == 404

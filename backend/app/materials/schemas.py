@@ -97,6 +97,14 @@ class Topic(BaseModel):
     source_count: int = 0
 
 
+class TopicUpdate(BaseModel):
+    """Both optional and independently applied -- a caller renaming a topic
+    doesn't have to resend its description, and vice versa."""
+
+    name: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+
+
 class TopicSource(BaseModel):
     """One row of the topic page's material list: "9 of 34 chunks tagged to
     Entropy · rest tagged to Heat transfer, Second law"."""

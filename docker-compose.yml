@@ -57,6 +57,10 @@ services:
       # Server components only. The browser-facing URL was already baked into
       # the bundle at build time and cannot be changed from here.
       INTERNAL_API_BASE_URL: http://backend:8000
+      # Sent as X-Gather-Token by the "Sync now" Server Action -- server-only,
+      # same reason INTERNAL_API_BASE_URL is not NEXT_PUBLIC_. Must match the
+      # backend's MATERIALS_GATHER_TOKEN below.
+      MATERIALS_GATHER_TOKEN: ${MATERIALS_GATHER_TOKEN:?set MATERIALS_GATHER_TOKEN in .env}
     depends_on:
       backend:
         condition: service_healthy

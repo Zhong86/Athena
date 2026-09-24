@@ -1,17 +1,55 @@
-"""SQL for `materials_gather_runs` -- the gather graph's own run log.
+"""SQL for `materials_gather_runs` and the gather graph's row in `settings`.
 
-Kept separate from `app.connections.repository`'s `last_synced_at`: that
-column is stamped by every ordinary Drive fetch during ingest (see
-`materials/ingest/pipeline.py`), so reusing it here would let an unrelated
-manual import silently advance the gather cursor.
+`materials_gather_runs` is kept separate from `app.connections.repository`'s
+`last_synced_at`: that column is stamped by every ordinary Drive fetch during
+ingest (see `materials/ingest/pipeline.py`), so reusing it here would let an
+unrelated manual import silently advance the gather cursor.
+
+The Drive folder scope lives in the generic `settings` table (`001_initial.sql`)
+rather than a bespoke column or table: it is exactly the "page-scoped,
+JSON-encoded" shape that table exists for, and it is the one piece of gather
+config a user edits at runtime through the UI -- unlike the `materials_gather_*`
+`Settings` fields in `app/config.py`, which are env-configured and need a
+restart to change.
 """
 
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.clock import utc_now_iso
 from app.config import get_settings
+
+DRIVE_FOLDER_KEY = "materials.gather_drive_folder"
+
+
+def get_drive_folder(conn: sqlite3.Connection) -> dict[str, str] | None:
+    """`{"folder_id", "folder_name"}`, or None when gather is scoped to all of
+    Drive (the default -- no row means no restriction, not an error)."""
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key = ?", (DRIVE_FOLDER_KEY,)
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        return json.loads(row["value"])
+    except (TypeError, ValueError):
+        return None
+
+
+def set_drive_folder(conn: sqlite3.Connection, *, folder_id: str, folder_name: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO settings (key, value) VALUES (?, ?)
+        ON CONFLICT (key) DO UPDATE SET value = excluded.value
+        """,
+        (DRIVE_FOLDER_KEY, json.dumps({"folder_id": folder_id, "folder_name": folder_name})),
+    )
+
+
+def clear_drive_folder(conn: sqlite3.Connection) -> None:
+    conn.execute("DELETE FROM settings WHERE key = ?", (DRIVE_FOLDER_KEY,))
 
 
 def _last_cursor(conn: sqlite3.Connection) -> str | None:

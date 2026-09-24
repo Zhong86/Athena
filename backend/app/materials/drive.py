@@ -10,11 +10,40 @@ the original stays in the user's Drive, we keep the derived index, and a retry
 re-fetches rather than reading disk.
 """
 
+import re
 from typing import Any
 
 from app.connections import google_drive
 
 FOLDER_MIME = "application/vnd.google-apps.folder"
+
+_FOLDER_URL_ID = re.compile(r"/folders/([a-zA-Z0-9_-]+)")
+# Drive ids are opaque, but every one seen in practice is this alphabet --
+# good enough to reject "that's not even shaped like an id" before a wasted
+# round-trip to the API.
+_BARE_ID = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def extract_folder_id(raw: str) -> str:
+    """Take whatever the user pasted -- a folder URL or a bare id -- and find
+    the id. Mirrors `google_oauth.extract_code`'s accept-both leniency: people
+    copy the whole address bar as often as they copy just the id."""
+    pasted = raw.strip()
+    if not pasted:
+        raise ValueError("paste a Drive folder link or its id.")
+
+    match = _FOLDER_URL_ID.search(pasted)
+    if match:
+        return match.group(1)
+
+    if "://" in pasted or "/" in pasted:
+        raise ValueError(
+            "that doesn't look like a Drive folder link -- it should contain "
+            "/folders/<id>."
+        )
+    if not _BARE_ID.match(pasted):
+        raise ValueError("that doesn't look like a Drive folder id.")
+    return pasted
 
 # Native Google formats have no bytes of their own; each maps to the export
 # format that best survives becoming plain text. Sheets export as CSV because

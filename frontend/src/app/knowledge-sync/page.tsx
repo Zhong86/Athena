@@ -1,8 +1,10 @@
 import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
 import { SessionLog } from "@/components/SessionLog";
-import { ApiError, listSessions, type Session } from "@/lib/api";
+import { ApiError, getGatherConfig, listSessions, type GatherConfig, type Session } from "@/lib/api";
 import styles from "@/styles/log.module.css";
+
+import { SyncControls } from "./SyncControls";
 
 export const metadata = { title: "Knowledge-Sync · Αθηνα" };
 
@@ -25,6 +27,14 @@ export default async function KnowledgeSyncPage() {
     error = err instanceof ApiError ? err.message : "Something went wrong.";
   }
 
+  let gatherConfig: GatherConfig = { folder_id: null, folder_name: null };
+  let gatherConfigError: string | null = null;
+  try {
+    gatherConfig = await getGatherConfig();
+  } catch (err) {
+    gatherConfigError = err instanceof ApiError ? err.message : "Something went wrong.";
+  }
+
   return (
     <>
       <Nav active="Knowledge-Sync" />
@@ -39,6 +49,8 @@ export default async function KnowledgeSyncPage() {
         </div>
 
         {error ? <div className="banner-error">{error}</div> : null}
+
+        <SyncControls config={gatherConfig} loadError={gatherConfigError} />
 
         <div className="section">
           <div className="section-head">

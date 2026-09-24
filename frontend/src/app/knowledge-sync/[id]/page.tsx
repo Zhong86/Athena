@@ -7,14 +7,17 @@ import { TraceTimeline } from "@/components/SessionTrace";
 import { When } from "@/components/When";
 import {
   ApiError,
+  getGatherRunMaterials,
   getSession,
   listSessions,
   titleOf,
   traceOf,
   TYPE_LABEL,
+  type GatherRunMaterials,
   type Session,
 } from "@/lib/api";
 
+import { GatherMaterials } from "../GatherMaterials";
 import styles from "./run.module.css";
 
 export const metadata = { title: "Run · Αθηνα" };
@@ -52,6 +55,21 @@ export default async function RunDetailPage(props: {
   // /knowledge-sync is the two unprompted types; a chat or quiz reached by
   // guessing an id belongs to its own section, not here.
   if (session.type !== "cron" && session.type !== "agent_action") notFound();
+
+  // A gather run's payload is file ids, not a Hermes trace -- see
+  // GatherRunMaterials's docstring for why that's resolved here instead of
+  // stored on the session. Other cron/agent_action sessions keep the
+  // generic trace timeline below.
+  const isGatherRun = session.payload?.kind === "materials_gather";
+  let materials: GatherRunMaterials | null = null;
+  let materialsError: string | null = null;
+  if (isGatherRun) {
+    try {
+      materials = await getGatherRunMaterials(session.id);
+    } catch (err) {
+      materialsError = err instanceof ApiError ? err.message : "Something went wrong.";
+    }
+  }
 
   const trace = traceOf(session);
 
@@ -99,30 +117,46 @@ export default async function RunDetailPage(props: {
           ) : null}
         </div>
 
-        <div className="section">
-          <div className="section-head">
-            <h2>How it got there</h2>
-            {trace.length ? (
-              <span className={styles.count}>
-                {trace.length} {trace.length === 1 ? "step" : "steps"}
-              </span>
+        {isGatherRun ? (
+          <div className="section">
+            <div className="section-head">
+              <h2>Materials added</h2>
+            </div>
+
+            {materialsError ? (
+              <div className="banner-error">{materialsError}</div>
+            ) : materials ? (
+              <GatherMaterials materials={materials} />
             ) : null}
           </div>
+        ) : (
+          <>
+            <div className="section">
+              <div className="section-head">
+                <h2>How it got there</h2>
+                {trace.length ? (
+                  <span className={styles.count}>
+                    {trace.length} {trace.length === 1 ? "step" : "steps"}
+                  </span>
+                ) : null}
+              </div>
 
-          {trace.length ? (
-            <TraceTimeline trace={trace} />
-          ) : (
-            <div className="empty-state">
-              <strong>No trace recorded</strong>
-              This run finished without reporting its steps — older runs predate
-              step-by-step tracing.
+              {trace.length ? (
+                <TraceTimeline trace={trace} />
+              ) : (
+                <div className="empty-state">
+                  <strong>No trace recorded</strong>
+                  This run finished without reporting its steps — older runs
+                  predate step-by-step tracing.
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <p className="footnote">
-          Tool results are previews: Hermes truncates each to 500 characters.
-        </p>
+            <p className="footnote">
+              Tool results are previews: Hermes truncates each to 500 characters.
+            </p>
+          </>
+        )}
       </div>
 
       <ChatLauncher />

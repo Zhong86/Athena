@@ -377,6 +377,57 @@ def list_topics_for_prompt(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     ]
 
 
+def update_topic(
+    conn: sqlite3.Connection,
+    topic_id: int,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any] | None:
+    """Rename and/or redescribe. A field left `None` is untouched -- there is
+    no way to explicitly blank a name (it's `NOT NULL UNIQUE`), and blanking
+    the description is just as easily done by passing `""`.
+
+    Returns the row with the same `chunk_count`/`source_count` shape
+    `list_topics` uses, not a bare row -- the caller renders this straight
+    back as a `Topic`, which needs both.
+    """
+    sets: list[str] = []
+    params: list[Any] = []
+    if name is not None:
+        sets.append("name = ?")
+        params.append(name)
+    if description is not None:
+        sets.append("description = ?")
+        params.append(description)
+
+    if sets:
+        conn.execute(f"UPDATE topics SET {', '.join(sets)} WHERE id = ?", [*params, topic_id])
+
+    row = conn.execute(
+        """
+        SELECT t.*,
+               COUNT(c.id) AS chunk_count,
+               COUNT(DISTINCT c.source_file_id) AS source_count
+        FROM topics t
+        LEFT JOIN chunks c ON c.topic_id = t.id
+        WHERE t.id = ?
+        GROUP BY t.id
+        """,
+        (topic_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def delete_topic(conn: sqlite3.Connection, topic_id: int) -> bool:
+    """Un-tags rather than un-makes: `chunks.topic_id REFERENCES topics (id)
+    ON DELETE SET NULL` (001_initial.sql) means every chunk that was tagged
+    here reverts to unassigned -- same state as a chunk the tagger couldn't
+    place -- rather than the chunk, its source file, or its embedding being
+    touched. Nothing the student uploaded is lost by deleting a topic."""
+    return conn.execute("DELETE FROM topics WHERE id = ?", (topic_id,)).rowcount > 0
+
+
 def list_topics(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Materials index: every topic with its chunk and distinct-source counts."""
     return [
@@ -440,3 +491,66 @@ def sources_for_topic(conn: sqlite3.Connection, topic_id: int) -> list[dict[str,
     for f in files:
         f["other_topics"] = others.get(f["source_file_id"], [])
     return files
+
+
+def list_source_files_by_ids(
+    conn: sqlite3.Connection, file_ids: list[int]
+) -> dict[int, dict[str, Any]]:
+    """Bulk-hydrate a set of ids in one round-trip -- same shape as `get_chunks`,
+    for a caller (the gather run detail view) that already has ids in hand."""
+    if not file_ids:
+        return {}
+    placeholders = ",".join("?" * len(file_ids))
+    rows = conn.execute(
+        f"SELECT * FROM source_files WHERE id IN ({placeholders})", file_ids
+    )
+    return {r["id"]: dict(r) for r in rows}
+
+
+def topics_for_source_files(
+    conn: sqlite3.Connection, file_ids: list[int]
+) -> list[dict[str, Any]]:
+    """The inverse of `sources_for_topic`: given a set of files, which topics
+    did their chunks land in, and how many chunks from each.
+
+    Backs the gather run detail view -- "this run added material to these
+    topics" -- rather than the topic page's "this topic came from these
+    files." Untagged chunks (`topic_id IS NULL`, e.g. tagging degraded or
+    hasn't run yet) are excluded; the caller derives "still processing" /
+    "nothing tagged" from `ingest_status` instead, which is a fact about the
+    file and not one this query about chunks can express.
+    """
+    if not file_ids:
+        return []
+    placeholders = ",".join("?" * len(file_ids))
+    rows = conn.execute(
+        f"""
+        SELECT t.id AS topic_id, t.name AS topic_name,
+               c.source_file_id, sf.filename, sf.upload_type, sf.origin, sf.drive_url,
+               COUNT(c.id) AS chunk_count
+        FROM chunks c
+        JOIN topics t ON t.id = c.topic_id
+        JOIN source_files sf ON sf.id = c.source_file_id
+        WHERE c.source_file_id IN ({placeholders}) AND c.topic_id IS NOT NULL
+        GROUP BY t.id, c.source_file_id
+        ORDER BY t.name, sf.filename
+        """,
+        file_ids,
+    )
+
+    topics: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        topic = topics.setdefault(
+            r["topic_id"], {"topic_id": r["topic_id"], "topic_name": r["topic_name"], "files": []}
+        )
+        topic["files"].append(
+            {
+                "source_file_id": r["source_file_id"],
+                "filename": r["filename"],
+                "upload_type": r["upload_type"],
+                "origin": r["origin"],
+                "drive_url": r["drive_url"],
+                "chunk_count": r["chunk_count"],
+            }
+        )
+    return list(topics.values())

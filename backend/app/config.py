@@ -81,11 +81,23 @@ class Settings(BaseSettings):
     # Placeholders -- tune once real Drive/inbox volume is seen.
     materials_gather_max_imports: int = 20
     materials_gather_drive_scan_cap: int = 300
+    # Drive's API has no recursive folder search -- a scoped scan walks the
+    # tree itself (see gather/scan_drive.py), one list_files call per folder.
+    # This bounds how many folders that walk can visit, independent of the
+    # file-count cap above, so a folder scope pointed at a huge tree can't
+    # turn one gather run into hundreds of Drive calls.
+    materials_gather_drive_folder_cap: int = 100
     materials_gather_lookback_days: int = 30
     # Shared secret for POST /materials/gather/run. Empty means the endpoint
     # refuses every request -- an unauthenticated auto-import-and-ingest
     # endpoint must not be reachable by default.
     materials_gather_token: str = ""
+
+    # Dev-only bulk-delete switch (POST /materials/gather/reset). Never set
+    # this in a deployed .env -- see that endpoint's docstring for what it
+    # wipes. Defaults off so the endpoint 404s (not just refuses) unless a
+    # developer has deliberately opted in.
+    test_mode: bool = False
 
     # Frontend origins allowed through CORS (comma-separated).
     # Dev port drifts when 3000 is taken by another project, so allow both.

@@ -5,6 +5,7 @@ calls, so the request stores the bytes, starts a background run, and hands back
 an id to poll.
 """
 
+import sqlite3
 from pathlib import Path
 
 import anyio
@@ -32,6 +33,7 @@ from app.materials.schemas import (
     TextUpload,
     Topic,
     TopicDetail,
+    TopicUpdate,
     UploadAccepted,
 )
 
@@ -322,6 +324,31 @@ def get_topic(topic_id: int) -> TopicDetail:
         chunk_count = repo.count_chunks_for_topic(conn, topic_id)
 
     return TopicDetail(**topic, sources=sources, chunk_count=chunk_count)
+
+
+@router.patch("/topics/{topic_id}", response_model=Topic)
+def update_topic(topic_id: int, body: TopicUpdate) -> Topic:
+    with connection() as conn:
+        if repo.get_topic(conn, topic_id) is None:
+            raise HTTPException(404, f"topic {topic_id} not found")
+        try:
+            row = repo.update_topic(conn, topic_id, name=body.name, description=body.description)
+        except sqlite3.IntegrityError as exc:
+            # topics.name is UNIQUE -- renaming onto an existing name is a
+            # merge, not a rename, and this endpoint doesn't do merges.
+            raise HTTPException(409, f"a topic named {body.name!r} already exists") from exc
+
+    return Topic(**row)  # type: ignore[arg-type]
+
+
+@router.delete("/topics/{topic_id}", status_code=204)
+def delete_topic(topic_id: int) -> None:
+    """Un-tags rather than deletes anything under it -- see
+    `repository.delete_topic`'s docstring. The chunks, their source files and
+    embeddings are untouched; only the label and its row go."""
+    with connection() as conn:
+        if not repo.delete_topic(conn, topic_id):
+            raise HTTPException(404, f"topic {topic_id} not found")
 
 
 @router.get("/topics/{topic_id}/chunks", response_model=ChunkPage)

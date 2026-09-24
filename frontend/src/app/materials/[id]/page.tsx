@@ -11,7 +11,6 @@ import {
   getTopicChunks,
   listTopics,
   listUnderstandingEvents,
-  understandingBand,
   UPLOAD_GLYPH,
   type ChunkPage,
   type Topic,
@@ -22,6 +21,7 @@ import {
 
 import styles from "../materials.module.css";
 import { SourceName } from "../SourceName";
+import { TopicHeader } from "./TopicHeader";
 
 export const metadata = { title: "Topic · Αθηνα" };
 
@@ -75,8 +75,6 @@ export default async function TopicDetailPage(props: {
     listUnderstandingEvents(topicId).catch((): UnderstandingEvent[] => []),
   ]);
 
-  const band = understandingBand(topic.user_understanding);
-
   const drill: DrillNav = {
     back: { href: "/materials", label: "Materials" },
     title: "TOPICS",
@@ -93,20 +91,7 @@ export default async function TopicDetailPage(props: {
       <Nav active="Materials" drill={drill} />
 
       <div className="shell">
-        <div className={styles.topicHeadRow}>
-          <div>
-            <h1 className={styles.topicTitle}>{topic.name}</h1>
-            {topic.description ? (
-              <p className={styles.topicLede}>{topic.description}</p>
-            ) : null}
-          </div>
-          <div className={`${styles.scoreBadge} ${styles[band.tone]}`}>
-            <span className={styles.scoreNum}>
-              {topic.user_understanding < 0 ? "—" : topic.user_understanding}
-            </span>
-            <span className={styles.scoreLabel}>{band.label}</span>
-          </div>
-        </div>
+        <TopicHeader topic={topic} />
 
         {topic.user_understanding < 0 ? (
           <div className="section">

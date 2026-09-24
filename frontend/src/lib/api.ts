@@ -51,7 +51,10 @@ export type Session = {
   id: number;
   type: SessionType;
   started_at: string;
-  payload: { messages?: ChatMessage[]; trace?: TraceEntry[] } | null;
+  /** `kind` discriminates payload shapes sharing a `type` -- e.g. a gather
+      run (`"materials_gather"`) carries file ids, not a Hermes trace, so the
+      run detail page fetches GatherRunMaterials instead of rendering `trace`. */
+  payload: { messages?: ChatMessage[]; trace?: TraceEntry[]; kind?: string } | null;
   summary: string | null;
   /** User-set override; null means fall back to the derived title. */
   title: string | null;
@@ -82,13 +85,17 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // FormData must set its own Content-Type so the multipart boundary survives.
   const isForm = init?.body instanceof FormData;
+  // Merged rather than spread after `init`: a caller passing its own
+  // `headers` (e.g. a Server Action attaching X-Gather-Token) would otherwise
+  // silently drop Content-Type instead of adding to it.
+  const { headers: extraHeaders, ...restInit } = init ?? {};
 
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       cache: "no-store",
-      headers: isForm ? undefined : { "Content-Type": "application/json" },
-      ...init,
+      headers: { ...(isForm ? {} : { "Content-Type": "application/json" }), ...extraHeaders },
+      ...restInit,
     });
   } catch {
     throw new ApiError(`Cannot reach the backend at ${API_BASE}.`);
@@ -251,6 +258,23 @@ export function getTopic(id: number): Promise<TopicDetail> {
   return request<TopicDetail>(`/materials/topics/${id}`);
 }
 
+/** Both fields optional and independent -- send only what changed. */
+export function updateTopic(
+  id: number,
+  fields: { name?: string; description?: string },
+): Promise<Topic> {
+  return request<Topic>(`/materials/topics/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(fields),
+  });
+}
+
+/** Un-tags rather than deletes anything under it -- the chunks, their source
+    files and embeddings stay; only the topic label goes. */
+export function deleteTopic(id: number): Promise<void> {
+  return request<void>(`/materials/topics/${id}`, { method: "DELETE" });
+}
+
 export function getTopicChunks(id: number, limit = 100): Promise<ChunkPage> {
   return request<ChunkPage>(`/materials/topics/${id}/chunks?limit=${limit}`);
 }
@@ -337,6 +361,114 @@ export function retryUpload(id: number): Promise<SourceFile> {
 
 export function deleteUpload(id: number): Promise<void> {
   return request<void>(`/materials/uploads/${id}`, { method: "DELETE" });
+}
+
+/* ---------- materials gather (auto-sync) ---------- */
+
+/** Both null means gather scans all of connected Drive -- the default. */
+export type GatherConfig = {
+  folder_id: string | null;
+  folder_name: string | null;
+};
+
+export type GatherRunResult = {
+  run_id: number;
+  /** The Knowledge-Sync row this run wrote. */
+  session_id: number;
+  candidates_seen: number;
+  imported_file_ids: number[];
+  refreshed_file_ids: number[];
+  skipped_local: string[];
+};
+
+export function getGatherConfig(): Promise<GatherConfig> {
+  return request<GatherConfig>("/materials/gather/config");
+}
+
+/** `folder` is a pasted Drive folder link or bare id -- resolved against
+    Drive server-side before it's stored. */
+export function setGatherFolder(folder: string): Promise<GatherConfig> {
+  return request<GatherConfig>("/materials/gather/config", {
+    method: "PUT",
+    body: JSON.stringify({ folder }),
+  });
+}
+
+/** Reverts to scanning all of Drive. */
+export function clearGatherFolder(): Promise<GatherConfig> {
+  return request<GatherConfig>("/materials/gather/config", { method: "DELETE" });
+}
+
+/**
+ * `token` is `X-Gather-Token` -- the backend refuses this endpoint without
+ * it, since it auto-imports and ingests with no one to approve the picks.
+ * Only ever called from a Server Action (`knowledge-sync/actions.ts`), which
+ * is the one place allowed to hold the token: it's a server-only env var,
+ * same posture as `INTERNAL_API_BASE_URL`.
+ */
+export function runGather(token: string): Promise<GatherRunResult> {
+  return request<GatherRunResult>("/materials/gather/run", {
+    method: "POST",
+    headers: { "X-Gather-Token": token },
+  });
+}
+
+/** One file's contribution to one topic -- a file can appear under several
+    topics, since tagging is per-chunk, not per-file. */
+export type GatherTopicFile = {
+  source_file_id: number;
+  filename: string;
+  upload_type: UploadType;
+  origin: SourceOrigin;
+  drive_url: string | null;
+  chunk_count: number;
+};
+
+export type GatherTopic = {
+  topic_id: number;
+  topic_name: string;
+  files: GatherTopicFile[];
+};
+
+/** A touched file with nothing tagged to any topic yet -- still mid-ingest,
+    or tagging degraded. `ingest_status` says which. */
+export type GatherPendingFile = {
+  source_file_id: number;
+  filename: string;
+  upload_type: UploadType;
+  origin: SourceOrigin;
+  drive_url: string | null;
+  ingest_status: IngestStatus;
+};
+
+/** What a gather run actually added, grouped by topic rather than by file --
+    computed fresh from current tagging state, not frozen at run time, so it
+    stays correct once ingestion finishes or topics get merged/renamed -- and
+    so a file deleted from Materials afterward shows up in `removed` by its
+    name at the time, rather than silently vanishing from the run's history. */
+export type GatherRunMaterials = {
+  session_id: number;
+  topics: GatherTopic[];
+  pending: GatherPendingFile[];
+  removed: string[];
+  skipped: string[];
+};
+
+export function getGatherRunMaterials(sessionId: number): Promise<GatherRunMaterials> {
+  return request<GatherRunMaterials>(`/materials/gather/runs/${sessionId}`);
+}
+
+/** Whether the backend has TEST_MODE on -- gates rendering the "Reset all
+    materials" button. False (and the reset endpoint 404ing) is the default;
+    this is never true against a deployed backend. */
+export function getTestMode(): Promise<{ enabled: boolean }> {
+  return request<{ enabled: boolean }>("/materials/gather/test-mode");
+}
+
+/** Dev-only: wipes every source file, topic, chunk, embedding and gather-run
+    record. 404s if the backend isn't in TEST_MODE. */
+export function resetMaterials(): Promise<void> {
+  return request<void>("/materials/gather/reset", { method: "POST" });
 }
 
 /* ---------- goals ---------- */

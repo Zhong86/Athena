@@ -1,44 +1,20 @@
-import Link from "next/link";
-
 import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
 import {
   ApiError,
+  getTestMode,
   listTopics,
   listUploads,
-  understandingBand,
   type SourceFile,
   type Topic,
 } from "@/lib/api";
 
 import styles from "./materials.module.css";
+import { ResetButton } from "./ResetButton";
+import { TopicCard } from "./TopicCard";
 import { UploadPanel } from "./UploadPanel";
 
 export const metadata = { title: "Materials · Αθηνα" };
-
-function TopicCard({ topic }: { topic: Topic }) {
-  const band = understandingBand(topic.user_understanding);
-
-  return (
-    <li>
-      <Link href={`/materials/${topic.id}`} className={styles.topicCard}>
-        <div className={styles.topicHead}>
-          <p className={styles.topicName}>{topic.name}</p>
-          <span className={`${styles.scorePill} ${styles[band.tone]}`}>
-            {topic.user_understanding < 0 ? "—" : topic.user_understanding}
-          </span>
-        </div>
-        {topic.description ? (
-          <p className={styles.topicDesc}>{topic.description}</p>
-        ) : null}
-        <p className={styles.topicMeta}>
-          {topic.chunk_count} chunk{topic.chunk_count === 1 ? "" : "s"} ·{" "}
-          {topic.source_count} source{topic.source_count === 1 ? "" : "s"} · {band.label}
-        </p>
-      </Link>
-    </li>
-  );
-}
 
 export default async function MaterialsPage() {
   let topics: Topic[] = [];
@@ -50,6 +26,11 @@ export default async function MaterialsPage() {
   } catch (err) {
     error = err instanceof ApiError ? err.message : "Something went wrong.";
   }
+
+  // Absent entirely outside TEST_MODE, not just hidden -- the fetch failing
+  // (backend unreachable, whatever) must not accidentally show a reset
+  // button that would just 404 when clicked.
+  const testMode = await getTestMode().catch(() => ({ enabled: false }));
 
   const chunkTotal = topics.reduce((sum, topic) => sum + topic.chunk_count, 0);
   // -1 is "no signal yet", so it must not be counted as a weak score.
@@ -69,6 +50,8 @@ export default async function MaterialsPage() {
         </div>
 
         {error ? <div className="banner-error">{error}</div> : null}
+
+        {testMode.enabled ? <ResetButton /> : null}
 
         <div className="section">
           <div className="section-head">
