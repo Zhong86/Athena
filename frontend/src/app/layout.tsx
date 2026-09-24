@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 
+import { PageTransition } from "@/components/PageTransition";
 import { RoadmapCreationBanner } from "@/components/RoadmapCreationBanner";
 import { RoadmapCreationProvider } from "@/lib/roadmapCreation";
 
@@ -19,7 +20,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Αθηνα",
-  description: "A study agent that routes Materials and Goal signals.",
+  description: "A study agent that acts as a guide from your notes",
 };
 
 export default function RootLayout({
@@ -30,7 +31,7 @@ export default function RootLayout({
       <body className={`${fraunces.variable} ${inter.variable}`}>
         <RoadmapCreationProvider>
           <RoadmapCreationBanner />
-          {children}
+          <PageTransition>{children}</PageTransition>
         </RoadmapCreationProvider>
       </body>
     </html>

@@ -10,6 +10,24 @@
   border-bottom: 1px solid var(--indigo-line);
   color: var(--indigo-deep);
   font-size: 13.5px;
+  animation: bannerIn 0.22s ease-out both;
+}
+
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation: none;
+  }
 }
 
 .readyBanner {

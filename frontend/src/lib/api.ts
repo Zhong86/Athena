@@ -418,17 +418,12 @@ export function clearGatherFolder(): Promise<GatherConfig> {
  * Only ever called from a Server Action (`knowledge-sync/actions.ts`), which
  * is the one place allowed to hold the token: it's a server-only env var,
  * same posture as `INTERNAL_API_BASE_URL`.
- *
- * `scheduled` mirrors the VPS crontab's own call (see DEPLOY.md) -- passing
- * it subjects the run to `due_for_scheduled_run` instead of always running,
- * which is the only way to exercise that gating without waiting for the
- * actual crontab to fire. Defaults to false, i.e. a manual "Sync now".
  */
-export function runGather(token: string, scheduled = false): Promise<GatherRunResult> {
-  return request<GatherRunResult>(
-    `/materials/gather/run${scheduled ? "?scheduled=true" : ""}`,
-    { method: "POST", headers: { "X-Gather-Token": token } },
-  );
+export function runGather(token: string): Promise<GatherRunResult> {
+  return request<GatherRunResult>("/materials/gather/run", {
+    method: "POST",
+    headers: { "X-Gather-Token": token },
+  });
 }
 
 export function getGatherInterval(): Promise<GatherIntervalConfig> {

@@ -53,9 +53,9 @@ export default function LandingPage() {
         <h1 className={styles.wordmark}>Αθηνα</h1>
 
         <p className={styles.tagline}>
-          A study agent that reads the slides, notes and readings you already
-          have, and keeps a running score of what you actually understand.
-          It uses that score to decide what is worth your attention next.
+          A study agent that guides you with your materials. 
+          She uses various tools to help you achieve your academic goals. 
+          Sync with Google Drive for your notes, generate quizzes, and even roadmaps for you to follow. 
         </p>
 
         <Link href="/dashboard" className={styles.cta}>
