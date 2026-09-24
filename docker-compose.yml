@@ -21,6 +21,14 @@ services:
       # (the host path) is set in .env; this path is fixed by the mount, so it
       # lives here rather than there.
       HERMES_CONFIG_PATH: /app/.hermes
+    ports:
+      # Loopback only, not 0.0.0.0 -- lets Hermes (a host process on this same
+      # VPS, see the volumes comment below) reach POST /mcp at 127.0.0.1:8000
+      # without crossing a network. Binding the public interface instead would
+      # put every other route (materials, sessions, goals, quizzes -- none of
+      # which sit behind Caddy's basic_auth) directly on the internet; only
+      # /connections* is meant to be reachable that way, via Caddy.
+      - "127.0.0.1:8000:8000"
     volumes:
       # Everything durable lives here: SQLite, the LanceDB index, original
       # uploads, and the ~130MB ONNX embedding model. Losing this volume means
