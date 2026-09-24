@@ -441,43 +441,53 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
                       <div className={styles.reviewBody}>
                         {isEditing && draft ? (
                           <div className={styles.editFields}>
-                            <input
-                              value={draft.title}
-                              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-                              aria-label="Milestone title"
-                            />
-                            <textarea
-                              value={draft.description}
-                              onChange={(e) =>
-                                setDraft({ ...draft, description: e.target.value })
-                              }
-                              rows={2}
-                              placeholder="What this stage covers"
-                              aria-label="Description"
-                            />
-                            <input
-                              value={draft.reason}
-                              onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
-                              placeholder="Short reason"
-                              aria-label="Short reason"
-                            />
-                            <textarea
-                              value={draft.reason_long}
-                              onChange={(e) =>
-                                setDraft({ ...draft, reason_long: e.target.value })
-                              }
-                              rows={3}
-                              placeholder="Longer reasoning"
-                              aria-label="Long reason"
-                            />
-                            <input
-                              value={draft.est_effort}
-                              onChange={(e) =>
-                                setDraft({ ...draft, est_effort: e.target.value })
-                              }
-                              placeholder="Estimated time, e.g. 45–60 min"
-                              aria-label="Estimated time"
-                            />
+                            <label className={styles.fieldGroup}>
+                              <span className={styles.fieldLabel}>Title</span>
+                              <input
+                                value={draft.title}
+                                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                              />
+                            </label>
+                            <label className={styles.fieldGroup}>
+                              <span className={styles.fieldLabel}>Description</span>
+                              <textarea
+                                value={draft.description}
+                                onChange={(e) =>
+                                  setDraft({ ...draft, description: e.target.value })
+                                }
+                                rows={2}
+                                placeholder="What this stage covers"
+                              />
+                            </label>
+                            <label className={styles.fieldGroup}>
+                              <span className={styles.fieldLabel}>Short reason</span>
+                              <input
+                                value={draft.reason}
+                                onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
+                                placeholder="Shown on the collapsed row"
+                              />
+                            </label>
+                            <label className={styles.fieldGroup}>
+                              <span className={styles.fieldLabel}>Long reason</span>
+                              <textarea
+                                value={draft.reason_long}
+                                onChange={(e) =>
+                                  setDraft({ ...draft, reason_long: e.target.value })
+                                }
+                                rows={3}
+                                placeholder="Shown when expanded"
+                              />
+                            </label>
+                            <label className={styles.fieldGroup}>
+                              <span className={styles.fieldLabel}>Estimated time</span>
+                              <input
+                                value={draft.est_effort}
+                                onChange={(e) =>
+                                  setDraft({ ...draft, est_effort: e.target.value })
+                                }
+                                placeholder="e.g. 45–60 min"
+                              />
+                            </label>
                             <div className={styles.editActions}>
                               <button
                                 type="button"

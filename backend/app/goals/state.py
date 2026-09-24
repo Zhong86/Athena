@@ -238,3 +238,4 @@ def renumber(milestones: list[Milestone]) -> list[Milestone]:
         position += 1
         milestone["order"] = position
     return milestones
+

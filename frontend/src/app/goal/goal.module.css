@@ -1000,7 +1000,22 @@
 .editFields {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin-left: 1px;
 }
 
 .editFields input,
@@ -1106,3 +1121,4 @@
     transition: none;
   }
 }
+

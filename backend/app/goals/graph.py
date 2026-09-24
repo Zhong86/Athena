@@ -93,3 +93,4 @@ def compiled():
     """The compiled graph. Cached -- compiling per request would also mean a new
     checkpointer connection per request."""
     return build().compile(checkpointer=_saver())
+
