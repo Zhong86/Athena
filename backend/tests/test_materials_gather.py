@@ -118,6 +118,19 @@ def no_drive(monkeypatch):
     monkeypatch.setattr(google_drive, "access_token", not_connected)
 
 
+@pytest.fixture(autouse=True)
+def no_drive_download(monkeypatch):
+    """Default: fetching a Drive file's bytes (used for a relevance preview,
+    or a real import) fails cleanly. Deterministic and network-free rather
+    than relying on however this sandbox happens to behave when an unmocked
+    httpx call goes out -- tests that need a real preview override this."""
+
+    async def unavailable(token, file_id, *, export_mime, limit):
+        raise google_drive.DriveError("download not mocked for this test")
+
+    monkeypatch.setattr(google_drive, "download", unavailable)
+
+
 def _drop_inbox_file(
     name: str, text: str = "Some study notes about entropy and the second law of thermodynamics."
 ) -> Path:
@@ -214,6 +227,156 @@ class TestLocalInbox:
 
         assert resp.status_code == 200
         assert resp.json()["candidates_seen"] == 0
+        assert calls == []
+
+
+class TestRelevancePreview:
+    """decide_relevance judges text candidates from an actual content
+    preview, not just filename/size -- see relevance.py's docstring for why
+    (a short-but-real note was getting rejected purely for being short)."""
+
+    def _capture_prompt(self, monkeypatch):
+        captured = {}
+        original = hermes.complete
+
+        async def capturing(prompt, *, system=None):
+            captured["prompt"] = prompt
+            return json.dumps({"selected": []})
+
+        monkeypatch.setattr(hermes, "complete", capturing)
+        return captured
+
+    def test_local_candidate_preview_reaches_the_prompt(self, monkeypatch):
+        from app.materials.gather.relevance import decide_relevance
+
+        path = _drop_inbox_file(
+            "preview check.txt",
+            "This is a distinctive sentinel phrase: zzqorp-marker-9182.",
+        )
+        captured = self._capture_prompt(monkeypatch)
+
+        state = {
+            "run_id": 0,
+            "drive_cursor": None,
+            "local_candidates": [
+                {
+                    "path": str(path),
+                    "name": "preview check.txt",
+                    "upload_type": "text",
+                    "size": path.stat().st_size,
+                }
+            ],
+            "drive_new": [],
+        }
+        decide_relevance(state)
+
+        assert "zzqorp-marker-9182" in captured["prompt"]
+
+    def test_drive_candidate_preview_reaches_the_prompt(self, monkeypatch):
+        from app.materials.gather.relevance import decide_relevance
+
+        async def fake_token():
+            return "fake-token"
+
+        async def fake_download(token, file_id, *, export_mime, limit):
+            return b"Distinctive drive sentinel: qorpzz-marker-4471."
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "download", fake_download)
+        captured = self._capture_prompt(monkeypatch)
+
+        state = {
+            "run_id": 0,
+            "drive_cursor": None,
+            "local_candidates": [],
+            "drive_new": [
+                {
+                    "drive_file_id": "preview-drive-1",
+                    "name": "preview.txt",
+                    "mime_type": "text/plain",
+                    "upload_type": "text",
+                    "modified_at": None,
+                    "size": 50,
+                    "web_view_link": None,
+                    "exported": False,
+                    "source_file_id": None,
+                }
+            ],
+        }
+        decide_relevance(state)
+
+        assert "qorpzz-marker-4471" in captured["prompt"]
+
+    def test_preview_fetch_failure_degrades_to_name_only(self, monkeypatch):
+        """download() raising (the autouse default) must not crash the run --
+        it just means this one candidate is judged the old way."""
+        from app.materials.gather.relevance import decide_relevance
+
+        async def fake_token():
+            return "fake-token"
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        # no_drive_download (autouse) already makes `download` fail.
+
+        state = {
+            "run_id": 0,
+            "drive_cursor": None,
+            "local_candidates": [],
+            "drive_new": [
+                {
+                    "drive_file_id": "preview-drive-2",
+                    "name": "irrelevant memo.txt",
+                    "mime_type": "text/plain",
+                    "upload_type": "text",
+                    "modified_at": None,
+                    "size": 50,
+                    "web_view_link": None,
+                    "exported": False,
+                    "source_file_id": None,
+                }
+            ],
+        }
+        # Falls through to the shared `stubs` fake_complete, which rejects
+        # by name when there's no preview to judge from.
+        result = decide_relevance(state)
+        assert result["selected_drive"] == []
+
+    def test_non_text_candidates_are_never_previewed(self, monkeypatch):
+        """PDFs/images skip the preview fetch entirely -- too expensive to
+        pay for on every candidate just to judge relevance."""
+        from app.materials.gather.relevance import decide_relevance
+
+        calls = []
+
+        async def fake_token():
+            return "fake-token"
+
+        async def counting_download(token, file_id, *, export_mime, limit):
+            calls.append(file_id)
+            return b"should never be reached"
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "download", counting_download)
+
+        state = {
+            "run_id": 0,
+            "drive_cursor": None,
+            "local_candidates": [],
+            "drive_new": [
+                {
+                    "drive_file_id": "preview-drive-3",
+                    "name": "scan.pdf",
+                    "mime_type": "application/pdf",
+                    "upload_type": "pdf",
+                    "modified_at": None,
+                    "size": 5000,
+                    "web_view_link": None,
+                    "exported": False,
+                    "source_file_id": None,
+                }
+            ],
+        }
+        decide_relevance(state)
         assert calls == []
 
 

@@ -181,6 +181,16 @@ async def assign_topics(
             # must not pass silently either, hence the counter.
             assignments = []
             failed_batches += 1
+        else:
+            # The call succeeded but `_parse` couldn't find a single usable
+            # assignment in it -- a truncated response, a refusal, prose
+            # instead of JSON, whatever the cause. The prompt demands every
+            # excerpt get an entry, so zero for a non-empty batch is never a
+            # legitimate answer; treated as a failure for the same reason a
+            # dropped connection is, so the row ends up retryable instead of
+            # a clean `ready` with nothing tagged and no note explaining why.
+            if not assignments:
+                failed_batches += 1
 
         by_index: dict[int, int | None] = {}
         for a in assignments:

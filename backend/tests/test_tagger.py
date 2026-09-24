@@ -118,6 +118,20 @@ async def test_malformed_json_leaves_chunks_unassigned(hermes_replies):
     hermes_replies["replies"] = ["I'm afraid I can't do that."]
     result = await assign_topics(["x", "y"], EXISTING)
     assert result.refs == [None, None]
+    # The call itself succeeded (no HermesError) but produced nothing usable
+    # for a non-empty batch -- that must count the same as a dropped
+    # connection, or the row goes to a clean `ready` with no note and no way
+    # to retry it. See assign_topics's `else:` branch.
+    assert result.failed_batches == 1
+
+
+async def test_well_formed_but_empty_assignments_also_counts_as_failed(hermes_replies):
+    """Distinct from the malformed-prose case above: here the JSON parses
+    fine, it just has nothing in it -- same conclusion either way."""
+    hermes_replies["replies"] = [json.dumps({"assignments": []})]
+    result = await assign_topics(["x", "y"], EXISTING)
+    assert result.refs == [None, None]
+    assert result.failed_batches == 1
 
 
 async def test_hallucinated_topic_id_is_unassigned(hermes_replies):
@@ -131,6 +145,10 @@ async def test_missing_assignment_leaves_that_chunk_unassigned(hermes_replies):
     hermes_replies["replies"] = [_reply({"index": 0, "topic_id": 1}, {"index": 2, "topic_id": 2})]
     result = await assign_topics(["a", "b", "c"], EXISTING)
     assert result.refs == [1, None, 2]
+    # A partial reply is not a failure -- only a batch with *zero* usable
+    # assignments is. Over-triggering here would make routine partial tagging
+    # (a model skipping one awkward chunk) falsely retryable forever.
+    assert result.failed_batches == 0
 
 
 async def test_hermes_down_does_not_lose_the_upload(hermes_replies):
