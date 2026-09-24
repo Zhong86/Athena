@@ -185,6 +185,35 @@ docker run --rm -v athena_athena-data:/data -v $(pwd):/backup alpine \
 
 Worth putting on a cron job before the stack holds anything you care about.
 
+**Materials gather cron** — this is the "sync" Settings' CRON routine picker
+controls, not Hermes; Hermes just answers the relevance/tagging calls the
+run makes along the way. The trigger itself is a plain HTTP call the VPS has
+to make on its own — nothing inside the container schedules it.
+
+The actual frequency (daily/weekly/biweekly) is set from the Settings page
+and stored server-side (`GET`/`PUT /api/materials/gather/interval`), but a
+crontab entry can't be reprogrammed at runtime by the app when that dropdown
+changes. So the crontab itself should fire *often* — hourly is fine — with
+`scheduled=true`, and let the backend decide whether the configured interval
+has actually elapsed since the last completed run. Off-schedule calls come
+back a cheap `{"skipped": true}` without touching Drive, the inbox, or
+Hermes; a manual "Sync now" click on the Knowledge-Sync page never sends
+`scheduled=true`, so it always runs regardless of this.
+
+```bash
+crontab -e
+```
+
+```cron
+0 * * * * curl -fsS -X POST "https://<your-domain>/api/materials/gather/run?scheduled=true" \
+  -H "X-Gather-Token: <MATERIALS_GATHER_TOKEN from ~/athena/.env>" >/dev/null
+```
+
+Changing the schedule afterward is just the Settings page — no VPS access or
+crontab edit needed; only the *polling* frequency above (how often the cron
+checks in) is fixed at setup time, and hourly is frequent enough for any of
+the three options the UI offers.
+
 **Connect Google Drive** — done from the Settings page, not the shell. The
 browser will ask for the `ATHENA_ADMIN_USER` / password pair from step 4 only if
 you hit `/api/connections*` directly; Αθηνα's own UI calls those endpoints

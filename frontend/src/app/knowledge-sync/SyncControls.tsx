@@ -87,6 +87,9 @@ export function SyncControls({ config, loadError }: Props) {
 
         {result ? (
           <p className={`${styles.row} ${styles.hint}`}>
+            {/* "Sync now" never sends scheduled=true, so the backend never
+                skips it -- session_id is only ever null here in principle,
+                not in practice. Guarded anyway since the type allows it. */}
             {result.candidates_seen === 0 ? (
               // The common case on a healthy schedule: nothing changed in the
               // inbox or Drive since the last run's cursor. Distinct from the
@@ -99,9 +102,11 @@ export function SyncControls({ config, loadError }: Props) {
                 {result.skipped_local.length} of {result.candidates_seen} candidates.{" "}
               </>
             )}
-            <Link href={`/knowledge-sync/${result.session_id}`} className="btn-inline ghost">
-              See details
-            </Link>
+            {result.session_id !== null ? (
+              <Link href={`/knowledge-sync/${result.session_id}`} className="btn-inline ghost">
+                See details
+              </Link>
+            ) : null}
           </p>
         ) : null}
 

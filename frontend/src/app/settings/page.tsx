@@ -1,6 +1,12 @@
 import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
-import { ApiError, type Connection, getConnections } from "@/lib/api";
+import {
+  ApiError,
+  type Connection,
+  type GatherIntervalConfig,
+  getConnections,
+  getGatherInterval,
+} from "@/lib/api";
 
 import { GoogleConnection } from "./GoogleConnection";
 import { SettingsPanel } from "./SettingsPanel";
@@ -8,9 +14,8 @@ import { SettingsPanel } from "./SettingsPanel";
 export const metadata = { title: "Settings · Αθηνα" };
 
 export default async function SettingsPage() {
-  // The connection section is real; the switches below it are still
-  // localStorage. Failing to reach the backend must not blank the page, so the
-  // error is rendered inside the card instead of thrown.
+  // Failing to reach the backend must not blank the page, so each section's
+  // error is rendered inline instead of thrown.
   let google: Connection | null = null;
   let secretsReady = true;
   let hermesDestination = "unknown";
@@ -26,6 +31,14 @@ export default async function SettingsPage() {
       err instanceof ApiError
         ? err.message
         : "Could not load your connections.";
+  }
+
+  let interval: GatherIntervalConfig["interval"] = "daily";
+  try {
+    interval = (await getGatherInterval()).interval;
+  } catch {
+    // SettingsPanel falls back to the same default and lets the next save
+    // retry -- one more failed fetch on this page must not block rendering.
   }
 
   return (
@@ -48,11 +61,7 @@ export default async function SettingsPage() {
           loadError={loadError}
         />
 
-        <SettingsPanel />
-
-        <p className="footnote">
-          Google Drive is live; the switches below are still browser-only
-        </p>
+        <SettingsPanel initialInterval={interval} />
       </div>
 
       <ChatLauncher />

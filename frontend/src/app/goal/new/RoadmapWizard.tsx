@@ -16,6 +16,7 @@ import {
   type ResumeAction,
   type RoadmapEnvelope,
 } from "@/lib/api";
+import { useRoadmapCreation } from "@/lib/roadmapCreation";
 
 import styles from "../goal.module.css";
 
@@ -41,6 +42,7 @@ type EditDraft = {
 
 export function RoadmapWizard({ threadId }: { threadId: string | null }) {
   const router = useRouter();
+  const creation = useRoadmapCreation();
   const [envelope, setEnvelope] = useState<RoadmapEnvelope | null>(null);
   const [raw, setRaw] = useState("");
   // Keyed by question text, not index: a new clarifying round brings new keys,
@@ -54,6 +56,17 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const textarea = useRef<HTMLTextAreaElement>(null);
+  // The tracked calls below outlive this component on purpose (that's the
+  // point — the banner keeps going if the student leaves). This just stops
+  // their continuations from acting on a page the student already left,
+  // e.g. yanking them back with a stale `router.replace`.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const interrupt = envelope?.interrupt ?? null;
   const clarify = interrupt?.kind === "clarify" ? (interrupt as ClarifyInterrupt) : null;
@@ -95,14 +108,21 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
     setBusy(true);
     setError(null);
     try {
-      const fresh = await startRoadmap(input);
+      // Tracked at the layout level: if the student leaves this page before
+      // it resolves, the global banner still picks up the result.
+      const fresh = await creation.track("Reading your goal…", () => startRoadmap(input));
+      // They may have exited already — the banner has it from here, so this
+      // component must not navigate or update state out from under them.
+      if (!mounted.current) return;
       // The thread id goes in the URL so a reload or an exit can find the run.
       router.replace(`/goal/new?thread=${fresh.thread_id}`);
       land(fresh);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not start that goal.");
+      if (mounted.current) {
+        setError(err instanceof ApiError ? err.message : "Could not start that goal.");
+      }
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
 
@@ -117,6 +137,29 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
       setError(err instanceof ApiError ? err.message : "Could not send that.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** The clarify round is the other slow step — it runs the decompose node —
+      so it gets the same cross-page tracking as `begin`. */
+  async function sendClarifyAnswers() {
+    const id = envelope?.thread_id ?? threadId;
+    if (!id || busy || !clarify) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fresh = await creation.track(
+        "Breaking this into milestones and grounding them in your materials…",
+        () => resumeRoadmap(id, { answers: clarify.questions.map((q) => answers[q] ?? "") }),
+      );
+      if (!mounted.current) return;
+      land(fresh);
+    } catch (err) {
+      if (mounted.current) {
+        setError(err instanceof ApiError ? err.message : "Could not send that.");
+      }
+    } finally {
+      if (mounted.current) setBusy(false);
     }
   }
 
@@ -305,11 +348,7 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
                   <button
                     type="button"
                     className="btn"
-                    // Sent in question order, which is the pairing clarify_intent
-                    // zips back into the transcript.
-                    onClick={() =>
-                      resume({ answers: clarify.questions.map((q) => answers[q] ?? "") })
-                    }
+                    onClick={sendClarifyAnswers}
                     disabled={busy || clarify.questions.every((q) => !answers[q]?.trim())}
                   >
                     {busy ? "Building…" : "Send"}

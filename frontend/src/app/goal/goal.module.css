@@ -997,6 +997,25 @@
   flex-shrink: 0;
 }
 
+.dragHandle {
+  cursor: grab;
+  font-size: 16px;
+  /* Pointer Events own the gesture; letting the browser also scroll or
+     select text under the finger fights the drag on touch. */
+  touch-action: none;
+  user-select: none;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.dragging {
+  opacity: 0.6;
+  background: var(--bg);
+  border-radius: 12px;
+}
+
 .editFields {
   display: flex;
   flex-direction: column;

@@ -23,6 +23,7 @@ from app.materials.gather import service
 from app.materials.gather.schemas import (
     GatherFolderConfig,
     GatherFolderUpdate,
+    GatherIntervalConfig,
     GatherPendingFile,
     GatherRunMaterials,
     GatherRunResult,
@@ -88,11 +89,39 @@ def clear_config() -> GatherFolderConfig:
     return GatherFolderConfig()
 
 
+@router.get("/interval", response_model=GatherIntervalConfig)
+def get_interval() -> GatherIntervalConfig:
+    with connection() as conn:
+        return GatherIntervalConfig(interval=repo.get_gather_interval(conn))
+
+
+@router.put("/interval", response_model=GatherIntervalConfig)
+def set_interval(body: GatherIntervalConfig) -> GatherIntervalConfig:
+    with connection() as conn:
+        repo.set_gather_interval(conn, body.interval)
+    return body
+
+
 @router.post("/run", response_model=GatherRunResult)
 async def run_gather(
-    tasks: BackgroundTasks, x_gather_token: str | None = Header(default=None)
+    tasks: BackgroundTasks,
+    x_gather_token: str | None = Header(default=None),
+    scheduled: bool = False,
 ) -> GatherRunResult:
+    """`scheduled=true` is how a polling cron job identifies itself, as
+    opposed to a manual "Sync now" click: it may fire far more often than the
+    configured interval actually wants a real run, so it is the only caller
+    subject to `due_for_scheduled_run` -- an off-schedule poll gets a no-op
+    response back instead of re-scanning Drive/the inbox and re-asking Hermes
+    for nothing new. A manual click always runs immediately, interval or not.
+    """
     _check_token(x_gather_token)
+
+    if scheduled:
+        with connection() as conn:
+            due = repo.due_for_scheduled_run(conn)
+        if not due:
+            return GatherRunResult(skipped=True, reason="not due yet")
 
     result = await service.run_gather_cycle()
 

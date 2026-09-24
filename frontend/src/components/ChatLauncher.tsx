@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { ApiError, createSession, sendChat } from "@/lib/api";
+import { ApiError, createSession } from "@/lib/api";
 
 import styles from "./chatLauncher.module.css";
 
@@ -34,8 +34,10 @@ export function ChatLauncher() {
       if (sessionRef.current === null) {
         sessionRef.current = (await createSession("chat")).id;
       }
-      await sendChat(sessionRef.current, message);
-      router.push(`/sessions/${sessionRef.current}`);
+      // Hand the message off in the URL and navigate right away — the
+      // transcript page sends it and shows its own thinking state, instead of
+      // the launcher panel waiting on the full reply before switching pages.
+      router.push(`/sessions/${sessionRef.current}?prompt=${encodeURIComponent(message)}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not start that chat.");
       setPending(false);

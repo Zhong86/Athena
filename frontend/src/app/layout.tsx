@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 
+import { RoadmapCreationBanner } from "@/components/RoadmapCreationBanner";
+import { RoadmapCreationProvider } from "@/lib/roadmapCreation";
+
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
@@ -24,7 +27,12 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${fraunces.variable} ${inter.variable}`}>{children}</body>
+      <body className={`${fraunces.variable} ${inter.variable}`}>
+        <RoadmapCreationProvider>
+          <RoadmapCreationBanner />
+          {children}
+        </RoadmapCreationProvider>
+      </body>
     </html>
   );
 }

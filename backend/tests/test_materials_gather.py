@@ -899,6 +899,93 @@ class TestRunMaterials:
         assert resp.status_code == 404
 
 
+class TestIntervalConfig:
+    def test_default_is_daily(self, client):
+        resp = client.get("/materials/gather/interval")
+        assert resp.status_code == 200
+        assert resp.json() == {"interval": "daily"}
+
+    def test_set_interval_persists(self, client):
+        resp = client.put("/materials/gather/interval", json={"interval": "weekly"})
+        assert resp.status_code == 200
+        assert resp.json() == {"interval": "weekly"}
+
+        assert client.get("/materials/gather/interval").json() == {"interval": "weekly"}
+
+        # Reset for tests below that assume the default.
+        client.put("/materials/gather/interval", json={"interval": "daily"})
+
+    def test_unknown_interval_is_rejected(self, client):
+        resp = client.put("/materials/gather/interval", json={"interval": "hourly"})
+        assert resp.status_code == 422
+
+
+class TestScheduledThrottle:
+    """`scheduled=true` is the polling-cron path -- gated by
+    `due_for_scheduled_run`, unlike a plain (manual) call."""
+
+    def test_unscheduled_call_always_runs_regardless_of_recency(self, client):
+        first = _run_gather(client)
+        assert first.status_code == 200
+        assert first.json()["skipped"] is False
+
+        second = _run_gather(client)
+        assert second.status_code == 200
+        assert second.json()["skipped"] is False
+
+    def test_scheduled_call_is_skipped_before_the_interval_elapses(self, client):
+        # Prime a completed run so there is a `finished_at` to measure from.
+        primer = client.post("/materials/gather/run", headers=HEADERS)
+        assert primer.status_code == 200
+
+        resp = client.post(
+            "/materials/gather/run", headers=HEADERS, params={"scheduled": "true"}
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["skipped"] is True
+        assert body["reason"]
+        assert body["run_id"] is None
+        assert body["session_id"] is None
+
+    def test_scheduled_call_runs_when_no_prior_run_exists(self, client):
+        with connection() as conn:
+            conn.execute("DELETE FROM materials_gather_runs")
+
+        resp = client.post(
+            "/materials/gather/run", headers=HEADERS, params={"scheduled": "true"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["skipped"] is False
+
+    def test_scheduled_call_runs_once_the_interval_has_elapsed(self, client):
+        with connection() as conn:
+            conn.execute("DELETE FROM materials_gather_runs")
+            run = gather_repo.start_run(conn)
+            gather_repo.finish_run(
+                conn,
+                run["id"],
+                drive_cursor=None,
+                candidates_seen=0,
+                imported_count=0,
+                skipped_count=0,
+            )
+            # Backdate past the default daily interval -- finish_run always
+            # stamps "now", which a fresh scheduled call would never be due
+            # against otherwise.
+            conn.execute(
+                "UPDATE materials_gather_runs SET finished_at = '2000-01-01T00:00:00Z' "
+                "WHERE id = ?",
+                (run["id"],),
+            )
+
+        resp = client.post(
+            "/materials/gather/run", headers=HEADERS, params={"scheduled": "true"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["skipped"] is False
+
+
 class TestTestModeReset:
     """GET /materials/gather/test-mode, POST /materials/gather/reset.
     TEST_MODE is off by default in this file's environment (not set above),

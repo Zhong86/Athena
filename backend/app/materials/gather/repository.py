@@ -15,11 +15,22 @@ restart to change.
 
 import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.clock import utc_now_iso
 
 DRIVE_FOLDER_KEY = "materials.gather_drive_folder"
+
+# Same `settings` table, same reasoning as the Drive folder scope above: a
+# user-editable runtime value, not an env-configured `Settings` field.
+INTERVAL_KEY = "materials.gather_interval"
+DEFAULT_INTERVAL = "daily"
+INTERVAL_DELTAS: dict[str, timedelta] = {
+    "daily": timedelta(days=1),
+    "weekly": timedelta(days=7),
+    "biweekly": timedelta(days=14),
+}
 
 
 def get_drive_folder(conn: sqlite3.Connection) -> dict[str, str] | None:
@@ -48,6 +59,59 @@ def set_drive_folder(conn: sqlite3.Connection, *, folder_id: str, folder_name: s
 
 def clear_drive_folder(conn: sqlite3.Connection) -> None:
     conn.execute("DELETE FROM settings WHERE key = ?", (DRIVE_FOLDER_KEY,))
+
+
+def get_gather_interval(conn: sqlite3.Connection) -> str:
+    """One of `INTERVAL_DELTAS`' keys. Falls back to `DEFAULT_INTERVAL` on a
+    missing row or a value this build no longer recognises, rather than
+    raising -- a stale value here must degrade, not break every scheduled
+    run."""
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key = ?", (INTERVAL_KEY,)
+    ).fetchone()
+    if row is None:
+        return DEFAULT_INTERVAL
+    try:
+        value = json.loads(row["value"])
+    except (TypeError, ValueError):
+        return DEFAULT_INTERVAL
+    return value if value in INTERVAL_DELTAS else DEFAULT_INTERVAL
+
+
+def set_gather_interval(conn: sqlite3.Connection, interval: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO settings (key, value) VALUES (?, ?)
+        ON CONFLICT (key) DO UPDATE SET value = excluded.value
+        """,
+        (INTERVAL_KEY, json.dumps(interval)),
+    )
+
+
+def due_for_scheduled_run(conn: sqlite3.Connection) -> bool:
+    """Whether a `scheduled=true` caller (a polling cron job, which may fire
+    far more often than the configured interval wants a real run) should
+    actually run now.
+
+    False only when a *completed* run exists and the configured interval has
+    not yet elapsed since it -- same reasoning as `_last_cursor` below: the
+    very first run, including right after a reset, is always due, since
+    there is no safe default short of "run it" for a gather that has never
+    happened."""
+    row = conn.execute(
+        """
+        SELECT finished_at FROM materials_gather_runs
+        WHERE finished_at IS NOT NULL
+        ORDER BY started_at DESC LIMIT 1
+        """
+    ).fetchone()
+    if row is None:
+        return True
+    finished_at = datetime.strptime(row["finished_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc
+    )
+    elapsed = datetime.now(timezone.utc) - finished_at
+    return elapsed >= INTERVAL_DELTAS[get_gather_interval(conn)]
 
 
 def _last_cursor(conn: sqlite3.Connection) -> str | None:

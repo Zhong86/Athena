@@ -22,9 +22,11 @@ import {
   type AuthorizeStarted,
   type Capability,
   type Connection,
+  type GatherIntervalConfig,
   disconnectGoogle,
   exchangeGoogleCode,
   setCapability,
+  setGatherInterval,
   uploadGoogleClient,
 } from "@/lib/api";
 
@@ -81,6 +83,19 @@ export async function toggleCapability(
     data = await setCapability(slug, capability, enabled);
   } catch (err) {
     return failed(err, "Could not change that permission.");
+  }
+  revalidatePath("/settings");
+  return { data, error: null };
+}
+
+export async function saveGatherInterval(
+  interval: GatherIntervalConfig["interval"],
+): Promise<ActionResult<GatherIntervalConfig>> {
+  let data: GatherIntervalConfig;
+  try {
+    data = await setGatherInterval(interval);
+  } catch (err) {
+    return failed(err, "Could not save that schedule.");
   }
   revalidatePath("/settings");
   return { data, error: null };

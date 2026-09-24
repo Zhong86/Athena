@@ -1,0 +1,59 @@
+.banner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--indigo-wash);
+  border-bottom: 1px solid var(--indigo-line);
+  color: var(--indigo-deep);
+  font-size: 13.5px;
+}
+
+.readyBanner {
+  background: var(--indigo-soft);
+}
+
+.errorBanner {
+  background: var(--coral-soft);
+  border-bottom-color: var(--coral);
+  color: var(--coral);
+}
+
+.text {
+  flex: 1;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--indigo-line);
+  border-top-color: var(--indigo);
+  animation: bannerSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes bannerSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}
+
+.close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}

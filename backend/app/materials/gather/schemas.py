@@ -1,17 +1,36 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.materials.schemas import IngestStatus, SourceOrigin, UploadType
 
 
 class GatherRunResult(BaseModel):
-    run_id: int
+    # True when a `scheduled=true` call came in before the configured
+    # interval had elapsed since the last completed run -- everything below
+    # stays at its default in that case, since no run actually happened.
+    skipped: bool = False
+    reason: str | None = None
+
+    run_id: int | None = None
     # The Knowledge-Sync row this run wrote -- lets the caller link straight
     # to it rather than re-deriving which session was just created.
-    session_id: int
-    candidates_seen: int
+    session_id: int | None = None
+    candidates_seen: int = 0
     imported_file_ids: list[int] = []
     refreshed_file_ids: list[int] = []
     skipped_local: list[str] = []
+
+
+GatherInterval = Literal["daily", "weekly", "biweekly"]
+
+
+class GatherIntervalConfig(BaseModel):
+    """How often a `scheduled=true` call to `POST /run` is allowed to do
+    real work -- see `due_for_scheduled_run`. Same shape for GET's response
+    and PUT's body."""
+
+    interval: GatherInterval = "daily"
 
 
 class GatherFolderConfig(BaseModel):

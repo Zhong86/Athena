@@ -1,7 +1,14 @@
 import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
 import { SessionLog } from "@/components/SessionLog";
-import { ApiError, getGatherConfig, listSessions, type GatherConfig, type Session } from "@/lib/api";
+import {
+  ApiError,
+  getGatherConfig,
+  getTestMode,
+  listSessions,
+  type GatherConfig,
+  type Session,
+} from "@/lib/api";
 import styles from "@/styles/log.module.css";
 
 import { SyncControls } from "./SyncControls";
@@ -35,6 +42,10 @@ export default async function KnowledgeSyncPage() {
     gatherConfigError = err instanceof ApiError ? err.message : "Something went wrong.";
   }
 
+  // Same "false unless a real backend says otherwise" fallback as
+  // materials/page.tsx -- never true against a deployed backend.
+  const testMode = await getTestMode().catch(() => ({ enabled: false }));
+
   return (
     <>
       <Nav active="Knowledge-Sync" />
@@ -50,7 +61,11 @@ export default async function KnowledgeSyncPage() {
 
         {error ? <div className="banner-error">{error}</div> : null}
 
-        <SyncControls config={gatherConfig} loadError={gatherConfigError} />
+        <SyncControls
+          config={gatherConfig}
+          loadError={gatherConfigError}
+          testMode={testMode.enabled}
+        />
 
         <div className="section">
           <div className="section-head">

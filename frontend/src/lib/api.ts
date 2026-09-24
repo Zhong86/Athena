@@ -372,13 +372,26 @@ export type GatherConfig = {
 };
 
 export type GatherRunResult = {
-  run_id: number;
-  /** The Knowledge-Sync row this run wrote. */
-  session_id: number;
+  /** True when a scheduled (cron) call landed before the configured
+      interval had elapsed since the last completed run -- everything below
+      is empty/null in that case, since no run actually happened. A manual
+      "Sync now" click is never skipped. */
+  skipped: boolean;
+  reason: string | null;
+  run_id: number | null;
+  /** The Knowledge-Sync row this run wrote. Null when skipped. */
+  session_id: number | null;
   candidates_seen: number;
   imported_file_ids: number[];
   refreshed_file_ids: number[];
   skipped_local: string[];
+};
+
+/** How often the VPS's polling cron job is allowed to actually run gather
+    (see DEPLOY.md's "Materials gather cron" section) -- a plain "Sync now"
+    click always runs regardless of this. */
+export type GatherIntervalConfig = {
+  interval: "daily" | "weekly" | "biweekly";
 };
 
 export function getGatherConfig(): Promise<GatherConfig> {
@@ -405,11 +418,29 @@ export function clearGatherFolder(): Promise<GatherConfig> {
  * Only ever called from a Server Action (`knowledge-sync/actions.ts`), which
  * is the one place allowed to hold the token: it's a server-only env var,
  * same posture as `INTERNAL_API_BASE_URL`.
+ *
+ * `scheduled` mirrors the VPS crontab's own call (see DEPLOY.md) -- passing
+ * it subjects the run to `due_for_scheduled_run` instead of always running,
+ * which is the only way to exercise that gating without waiting for the
+ * actual crontab to fire. Defaults to false, i.e. a manual "Sync now".
  */
-export function runGather(token: string): Promise<GatherRunResult> {
-  return request<GatherRunResult>("/materials/gather/run", {
-    method: "POST",
-    headers: { "X-Gather-Token": token },
+export function runGather(token: string, scheduled = false): Promise<GatherRunResult> {
+  return request<GatherRunResult>(
+    `/materials/gather/run${scheduled ? "?scheduled=true" : ""}`,
+    { method: "POST", headers: { "X-Gather-Token": token } },
+  );
+}
+
+export function getGatherInterval(): Promise<GatherIntervalConfig> {
+  return request<GatherIntervalConfig>("/materials/gather/interval");
+}
+
+export function setGatherInterval(
+  interval: GatherIntervalConfig["interval"],
+): Promise<GatherIntervalConfig> {
+  return request<GatherIntervalConfig>("/materials/gather/interval", {
+    method: "PUT",
+    body: JSON.stringify({ interval }),
   });
 }
 

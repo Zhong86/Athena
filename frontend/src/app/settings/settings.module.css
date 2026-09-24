@@ -1,5 +1,4 @@
-/* Settings is a local-only screen for now: no backend, no server state. The
-   rules here are all about the switch row, which is the whole page. */
+/* The rules here are all about the switch row, which is the whole page. */
 
 /* ===== Group ===== */
 .group {
@@ -78,4 +77,74 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* ===== Drive folder scope ===== */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 5px 8px 5px 11px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  max-width: 100%;
+}
+
+.chipRemove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chipRemove:hover:not(:disabled) {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+.chipRemove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.siteForm {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--indigo);
 }

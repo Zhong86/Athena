@@ -44,6 +44,30 @@ export async function runGatherNow(): Promise<ActionResult<GatherRunResult>> {
   return { data, error: null };
 }
 
+/** Test-mode only: calls `/run` the same way the VPS crontab does
+    (`scheduled=true`), so `due_for_scheduled_run` actually gets exercised
+    instead of always running -- the backend 404s the whole gather router's
+    reset endpoint outside TEST_MODE, but `/run` itself has no such gate, so
+    this stays behind the `TestModeStatus` check the UI already renders on. */
+export async function runGatherScheduled(): Promise<ActionResult<GatherRunResult>> {
+  const token = process.env.MATERIALS_GATHER_TOKEN;
+  if (!token) {
+    return {
+      data: null,
+      error: "MATERIALS_GATHER_TOKEN isn't set in the frontend's environment.",
+    };
+  }
+
+  let data: GatherRunResult;
+  try {
+    data = await runGather(token, true);
+  } catch (err) {
+    return failed(err, "Could not trigger the cron run.");
+  }
+  revalidatePath("/knowledge-sync");
+  return { data, error: null };
+}
+
 export async function saveGatherFolder(
   folder: string,
 ): Promise<ActionResult<GatherConfig>> {

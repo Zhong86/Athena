@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   addMilestone,
@@ -11,7 +11,6 @@ import {
   deleteMilestone,
   getGoal,
   reorderMilestones,
-  sendChat,
   SOURCE_LABEL,
   updateMilestone,
   type Milestone,
@@ -70,6 +69,10 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
   const [newDescription, setNewDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const dragOrigin = useRef<number[] | null>(null);
 
   async function run(work: () => Promise<unknown>, failure: string) {
     if (busy) return;
@@ -92,28 +95,138 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
     setOpen((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  function move(index: number, delta: number) {
+  function reorderByIds(list: Milestone[], ids: number[]) {
+    const byId = new Map(list.map((m) => [m.id, m]));
+    return ids.map((id) => byId.get(id)).filter((m): m is Milestone => Boolean(m));
+  }
+
+  /** The order swap is applied to local state immediately; the PUT and the
+      server-rendered stats above catch up in the background, so dragging
+      never waits on the network. */
+  function commitReorder(nextIds: number[], previousIds: number[]) {
+    if (nextIds.join(",") === previousIds.join(",")) return;
+    setError(null);
+    reorderMilestones(goalId, nextIds)
+      .then(() => router.refresh())
+      .catch((err) => {
+        setMilestones((prev) => reorderByIds(prev, previousIds));
+        setError(err instanceof ApiError ? err.message : "Could not reorder that.");
+      });
+  }
+
+  /** Keyboard fallback for the drag handle: Arrow Up/Down nudge one spot. */
+  function nudge(index: number, delta: number) {
     const target = index + delta;
     if (target < 0 || target >= milestones.length) return;
-    const ids = milestones.map((m) => m.id);
-    [ids[index], ids[target]] = [ids[target], ids[index]];
-    // The backend rejects a partial order, so this always sends every id.
-    void run(() => reorderMilestones(goalId, ids), "Could not reorder that.");
+    const previousIds = milestones.map((m) => m.id);
+    const nextIds = [...previousIds];
+    [nextIds[index], nextIds[target]] = [nextIds[target], nextIds[index]];
+    setMilestones((prev) => reorderByIds(prev, nextIds));
+    commitReorder(nextIds, previousIds);
+  }
+
+  function pointerToIndex(clientY: number) {
+    const items = listRef.current?.querySelectorAll<HTMLElement>("[data-mid]");
+    if (!items || !items.length) return 0;
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) return i;
+    }
+    return items.length - 1;
+  }
+
+  function startDrag(event: React.PointerEvent<HTMLButtonElement>, id: number) {
+    if (busy) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragOrigin.current = milestones.map((m) => m.id);
+    setDragId(id);
+  }
+
+  function dragMove(event: React.PointerEvent<HTMLButtonElement>) {
+    if (dragOrigin.current === null || dragId === null) return;
+    const from = milestones.findIndex((m) => m.id === dragId);
+    const to = pointerToIndex(event.clientY);
+    if (from === -1 || from === to) return;
+    setMilestones((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  function endDrag() {
+    if (dragOrigin.current === null) return;
+    const previousIds = dragOrigin.current;
+    dragOrigin.current = null;
+    setDragId(null);
+    commitReorder(
+      milestones.map((m) => m.id),
+      previousIds,
+    );
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent, index: number) {
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      nudge(index, -1);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      nudge(index, 1);
+    }
+  }
+
+  /** Local-first: the field, edit-panel close and status flip all happen
+      instantly, and the PATCH plays out behind them. A failure rolls the row
+      back and surfaces the banner instead of blocking the click on a round trip. */
+  function patchMilestone(
+    id: number,
+    fields: Parameters<typeof updateMilestone>[2],
+    apply: (m: Milestone) => Milestone,
+    failure: string,
+  ) {
+    const previous = milestones;
+    setMilestones((prev) => prev.map((m) => (m.id === id ? apply(m) : m)));
+    setError(null);
+    updateMilestone(goalId, id, fields)
+      .then(() => router.refresh())
+      .catch((err) => {
+        setMilestones(previous);
+        setError(err instanceof ApiError ? err.message : failure);
+      });
+  }
+
+  function setStatus(milestone: Milestone, status: Milestone["progress_status"], failure: string) {
+    patchMilestone(
+      milestone.id,
+      { progress_status: status },
+      (m) => {
+        if (m.id === milestone.id) return { ...m, progress_status: status };
+        // Only one stage is ever "current"; mirror that invariant locally so
+        // the UI doesn't show two focuses until the refresh comes back.
+        if (status === "current" && m.progress_status === "current") {
+          return { ...m, progress_status: "upcoming" };
+        }
+        return m;
+      },
+      failure,
+    );
   }
 
   function saveEdit(id: number) {
     if (!draft) return;
-    void run(async () => {
-      await updateMilestone(goalId, id, {
-        title: draft.title.trim() || undefined,
-        description: draft.description,
-        reason: draft.reason,
-        reason_long: draft.reason_long,
-        est_effort: draft.est_effort,
-      });
-      setEditing(null);
-      setDraft(null);
-    }, "Could not save that.");
+    const title = draft.title.trim();
+    if (!title) return;
+    const fields = {
+      title,
+      description: draft.description,
+      reason: draft.reason,
+      reason_long: draft.reason_long,
+      est_effort: draft.est_effort,
+    };
+    setEditing(null);
+    setDraft(null);
+    patchMilestone(id, fields, (m) => ({ ...m, ...fields }), "Could not save that.");
   }
 
   function remove(milestone: Milestone) {
@@ -135,16 +248,22 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
     }, "Could not add that milestone.");
   }
 
-  /** Same handoff the chat FAB uses: one real session, then the transcript page. */
+  /** Same handoff the chat FAB uses, but the session opens right away — the
+      transcript page sends the opening line itself and shows its own
+      thinking state instead of the student staring at a disabled page. */
   function review(milestone: Milestone) {
-    void run(async () => {
-      const session = await createSession("chat");
-      await sendChat(
-        session.id,
-        `Help me work through “${milestone.title}” — it is the current stage of my roadmap.`,
-      );
-      router.push(`/sessions/${session.id}`);
-    }, "Could not start that chat.");
+    if (reviewingId !== null) return;
+    setReviewingId(milestone.id);
+    setError(null);
+    createSession("chat")
+      .then((session) => {
+        const prompt = `Help me work through “${milestone.title}” — it is the current stage of my roadmap.`;
+        router.push(`/sessions/${session.id}?prompt=${encodeURIComponent(prompt)}`);
+      })
+      .catch((err) => {
+        setError(err instanceof ApiError ? err.message : "Could not start that chat.");
+        setReviewingId(null);
+      });
   }
 
   return (
@@ -173,7 +292,7 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
           Αθηνα build a fresh roadmap.
         </div>
       ) : (
-        <ul className={styles.roadmap}>
+        <ul className={styles.roadmap} ref={listRef}>
           {milestones.map((milestone, index) => {
             const isOpen = open.includes(milestone.id);
             const isEditing = editing === milestone.id;
@@ -187,9 +306,15 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
             const topicId = milestone.related_topic_ids[0];
 
             return (
-              <li key={milestone.id} className={`${styles.item} ${state}`}>
+              <li
+                key={milestone.id}
+                data-mid={milestone.id}
+                className={`${styles.item} ${state} ${dragId === milestone.id ? styles.dragging : ""}`}
+              >
                 <div className={styles.num} aria-hidden="true">
-                  {milestone.progress_status === "done" ? "✓" : milestone.order}
+                  {/* The array position, not the stored order: a mid-drag or
+                      not-yet-confirmed reorder must never show a stale number. */}
+                  {milestone.progress_status === "done" ? "✓" : index + 1}
                 </div>
 
                 <div className={styles.itemBody}>
@@ -241,7 +366,6 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
                           type="button"
                           className="btn-inline"
                           onClick={() => saveEdit(milestone.id)}
-                          disabled={busy}
                         >
                           Save
                         </button>
@@ -327,9 +451,9 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
                                 type="button"
                                 className="btn-inline"
                                 onClick={() => review(milestone)}
-                                disabled={busy}
+                                disabled={reviewingId === milestone.id}
                               >
-                                Review with Αθηνα
+                                {reviewingId === milestone.id ? "Starting…" : "Review with Αθηνα"}
                               </button>
                             ) : null}
                             {topicId ? (
@@ -342,15 +466,8 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
                                 type="button"
                                 className="btn-inline ghost"
                                 onClick={() =>
-                                  run(
-                                    () =>
-                                      updateMilestone(goalId, milestone.id, {
-                                        progress_status: "upcoming",
-                                      }),
-                                    "Could not reopen that stage.",
-                                  )
+                                  setStatus(milestone, "upcoming", "Could not reopen that stage.")
                                 }
-                                disabled={busy}
                               >
                                 Reopen
                               </button>
@@ -360,15 +477,8 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
                                   type="button"
                                   className="btn-inline ghost"
                                   onClick={() =>
-                                    run(
-                                      () =>
-                                        updateMilestone(goalId, milestone.id, {
-                                          progress_status: "done",
-                                        }),
-                                      "Could not mark that done.",
-                                    )
+                                    setStatus(milestone, "done", "Could not mark that done.")
                                   }
-                                  disabled={busy}
                                 >
                                   Mark done
                                 </button>
@@ -377,15 +487,8 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
                                     type="button"
                                     className="btn-inline ghost"
                                     onClick={() =>
-                                      run(
-                                        () =>
-                                          updateMilestone(goalId, milestone.id, {
-                                            progress_status: "current",
-                                          }),
-                                        "Could not move the focus.",
-                                      )
+                                      setStatus(milestone, "current", "Could not move the focus.")
                                     }
-                                    disabled={busy}
                                   >
                                     Make this the focus
                                   </button>
@@ -401,28 +504,19 @@ export function Roadmap({ goalId, initial }: { goalId: number; initial: Mileston
 
                 {adjusting && !isEditing ? (
                   <div className={styles.reviewActions}>
-                    <div className={styles.moveColumn}>
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        onClick={() => move(index, -1)}
-                        disabled={busy || index === 0}
-                        aria-label={`Move “${milestone.title}” earlier`}
-                        title="Move earlier"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.iconBtn}
-                        onClick={() => move(index, 1)}
-                        disabled={busy || index === milestones.length - 1}
-                        aria-label={`Move “${milestone.title}” later`}
-                        title="Move later"
-                      >
-                        ↓
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className={`${styles.iconBtn} ${styles.dragHandle}`}
+                      onPointerDown={(e) => startDrag(e, milestone.id)}
+                      onPointerMove={dragMove}
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
+                      onKeyDown={(e) => handleKeyDown(e, index)}
+                      aria-label={`Reorder “${milestone.title}”. Drag, or use Arrow Up and Arrow Down.`}
+                      title="Drag to reorder"
+                    >
+                      ⠿
+                    </button>
                     <button
                       type="button"
                       className={styles.iconBtn}
