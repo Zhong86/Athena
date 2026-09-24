@@ -3,7 +3,9 @@
 Same contract the tagger already established: reply with JSON only, strip the
 fence the model adds anyway, and treat an unparseable answer as a failure the
 caller can recover from rather than an exception that kills a graph run
-mid-interrupt.
+mid-interrupt. Two ways to ask: `ask_json` for a bare completion, `ask_agent_json`
+for a Runs-API call that lets the gateway use its own tools -- see
+`app.goals.research`, the one caller that needs the latter.
 
 Nodes are sync because LangGraph's SqliteSaver is sync and the router already
 runs the whole graph in a worker thread -- so this bridges to the async Hermes
@@ -56,13 +58,8 @@ def _run(factory):
         return anyio.run(factory)
 
 
-def ask_json(prompt: str, *, system: str = SYSTEM_PROMPT) -> Any:
-    """One Hermes round-trip that must come back as JSON."""
-    try:
-        raw = _run(lambda: hermes.complete(prompt, system=system))
-    except hermes.HermesError as exc:
-        raise LLMUnavailable(str(exc)) from exc
-
+def _parse_json(raw: str) -> Any:
+    """Shared salvage logic for a reply that is supposed to be JSON."""
     text = _FENCE.sub("", raw or "").strip()
     if not text:
         raise LLMUnavailable("Hermes returned an empty response")
@@ -79,3 +76,45 @@ def ask_json(prompt: str, *, system: str = SYSTEM_PROMPT) -> Any:
                 pass
         log.warning("roadmap: unparseable Hermes response: %s", text[:300])
         raise LLMUnavailable("Hermes did not return JSON")
+
+
+def ask_json(prompt: str, *, system: str = SYSTEM_PROMPT) -> Any:
+    """One Hermes round-trip that must come back as JSON."""
+    try:
+        raw = _run(lambda: hermes.complete(prompt, system=system))
+    except hermes.HermesError as exc:
+        raise LLMUnavailable(str(exc)) from exc
+    return _parse_json(raw)
+
+
+def ask_agent_json(
+    prompt: str, *, instructions: str | None = None, timeout: float = 120.0
+) -> tuple[Any, list[str]]:
+    """One Hermes agent run that must come back as JSON.
+
+    Unlike `ask_json`, this goes through the Runs API rather than a bare
+    completion -- the caller needs whatever real tools (search, browsing) the
+    gateway has, not the model's unaided guess. 120s, not the client's 900s
+    default: this runs synchronously inside a roadmap node, once per
+    ungrounded milestone, so a slow run should time out and fall back rather
+    than stall the whole approval screen.
+
+    Returns the parsed reply plus one "tool: gist" string per tool the run
+    actually completed, so a caller can show what was consulted instead of
+    asserting it.
+    """
+    try:
+        result = _run(lambda: hermes.run(prompt, instructions=instructions, timeout=timeout))
+    except hermes.HermesError as exc:
+        raise LLMUnavailable(str(exc)) from exc
+
+    error = next((e["text"] for e in result.trace if e.get("kind") == "error"), None)
+    if error:
+        raise LLMUnavailable(f"Hermes run failed: {error}")
+
+    sources = [
+        f"{entry['tool']}: {entry['output']}"
+        for entry in result.trace
+        if entry.get("kind") == "tool" and entry.get("status") == "ok" and entry.get("output")
+    ]
+    return _parse_json(result.output), sources

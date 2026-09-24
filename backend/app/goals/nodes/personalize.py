@@ -83,6 +83,7 @@ def _evidence(
     signal: TopicSignal | None,
     chunk_count: int,
     ranking_reason: str | None,
+    note: research.ResearchNote | None = None,
 ) -> str:
     lines: list[str] = []
     if signal:
@@ -93,6 +94,14 @@ def _evidence(
         )
     if chunk_count:
         lines.append(f"- Uploaded material: {chunk_count} chunks matched this milestone")
+    elif note is not None and note.grounded:
+        # Hermes actually researched this one -- hand its findings to the copy
+        # step as a fact, not just a label, or the polishing pass would rewrite
+        # over what the research call found.
+        lines.append(f"- Research found: {note.reason_long}")
+        lines.append(f"- Sources consulted: {'; '.join(note.sources)}")
+    elif note is not None:
+        lines.append("- Uploaded material: nothing matched this milestone, and Hermes could not research it either")
     else:
         lines.append("- Uploaded material: nothing matched this milestone")
     if ranking_reason:
@@ -111,6 +120,7 @@ def personalize_decomposition(state: RoadmapState) -> dict[str, Any]:
 
     # 1-3: ground each milestone, or branch to research.
     grounded_count = 0
+    research_notes: dict[str, research.ResearchNote] = {}
     for milestone in drafts:
         topic_ids, chunk_ids, _ = _ground(milestone)
         if topic_ids:
@@ -119,14 +129,19 @@ def personalize_decomposition(state: RoadmapState) -> dict[str, Any]:
             milestone["source_chunk_ids"] = chunk_ids
             grounded_count += 1
         else:
-            # Spec-mandated branch. Tagged honestly even though the tool is a
-            # stub, so the eventual fetcher only has to fill in the body.
+            # Spec-mandated branch. `investigate` runs a real Hermes agent call;
+            # it still falls back to an honest not-covered note when Hermes
+            # can't reach anything, so this branch never lies about what
+            # grounded it. Kept alongside the milestone (not just written into
+            # it) so step 5 can hand its findings to the copy step as evidence
+            # instead of the polishing pass silently overwriting them.
             note = research.investigate(milestone["title"], milestone.get("description", ""))
             milestone["source"] = "research"
             milestone["related_topic_ids"] = []
             milestone["source_chunk_ids"] = []
             milestone["reason"] = note.reason
             milestone["reason_long"] = note.reason_long
+            research_notes[milestone["id"]] = note
 
     # 4: reorder. Ungrounded milestones score 0 and keep the model's ordering
     # behind the ones that carry signal.
@@ -148,6 +163,7 @@ def personalize_decomposition(state: RoadmapState) -> dict[str, Any]:
             signal,
             len(milestone.get("source_chunk_ids") or []),
             ranking_reasons.get(milestone["id"]),
+            research_notes.get(milestone["id"]),
         )
         try:
             copy = ask_json(_copy_prompt(milestone, evidence))
