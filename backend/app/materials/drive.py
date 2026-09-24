@@ -67,12 +67,22 @@ def _quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def build_query(search: str | None = None, folder_id: str | None = None) -> str:
+def build_query(
+    search: str | None = None,
+    folder_id: str | None = None,
+    *,
+    modified_after: str | None = None,
+) -> str:
     """List only what can actually be ingested.
 
     Filtering by mime here rather than in the UI keeps the page-size honest:
     a Drive full of folders and .zip files would otherwise return pages that
     render almost empty after the client filters them.
+
+    `modified_after` is the gather graph's cursor (an RFC3339 timestamp): it
+    narrows the listing to files changed since the last complete scan, which
+    is what lets that graph treat "new since last run" as the search itself
+    rather than needing to remember every file it has already considered.
     """
     mime_clause = " or ".join(f"mimeType = '{m}'" for m in SUPPORTED_MIMES)
     parts = [f"trashed = false and ({mime_clause})"]
@@ -80,6 +90,8 @@ def build_query(search: str | None = None, folder_id: str | None = None) -> str:
         parts.append(f"'{_quote(folder_id)}' in parents")
     if search and search.strip():
         parts.append(f"name contains '{_quote(search.strip())}'")
+    if modified_after:
+        parts.append(f"modifiedTime > '{_quote(modified_after)}'")
     return " and ".join(parts)
 
 
