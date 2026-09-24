@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ChatLauncher } from "@/components/ChatLauncher";
+import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import {
   API_BASE,
@@ -187,7 +187,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <ChatLauncher />
+      <GetStartedGuide />
     </>
   );
 }

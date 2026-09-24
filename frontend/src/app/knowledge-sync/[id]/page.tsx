@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { ChatLauncher } from "@/components/ChatLauncher";
+import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav, type DrillNav } from "@/components/Nav";
 import { TraceTimeline } from "@/components/SessionTrace";
 import { When } from "@/components/When";
@@ -159,7 +159,7 @@ export default async function RunDetailPage(props: {
         )}
       </div>
 
-      <ChatLauncher />
+      <GetStartedGuide />
     </>
   );
 }

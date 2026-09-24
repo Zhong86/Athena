@@ -56,6 +56,15 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const reviewListRef = useRef<HTMLUListElement>(null);
+  const dragOrigin = useRef<string[] | null>(null);
+  // The graph thread only accepts one resume at a time -- unlike the goal
+  // page's independent REST calls, two in-flight resumes here race against
+  // the same interrupted checkpoint. Optimistic actions (reorder, edit) still
+  // update the screen instantly; this just keeps their network calls, and any
+  // `busy`-gated one that follows, from overlapping on the wire.
+  const syncQueue = useRef<Promise<unknown>>(Promise.resolve());
   // The tracked calls below outlive this component on purpose (that's the
   // point — the banner keeps going if the student leaves). This just stops
   // their continuations from acting on a page the student already left,
@@ -102,6 +111,35 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
     setEnvelope(fresh);
   }
 
+  /** Every resume call for this thread funnels through here, one at a time,
+      whichever order they were queued in. */
+  function sync(payload: ResumeAction): Promise<RoadmapEnvelope> {
+    const id = envelope?.thread_id ?? threadId;
+    const run = syncQueue.current.then(() => {
+      if (!id) throw new Error("No active draft to resume.");
+      return resumeRoadmap(id, payload);
+    });
+    // Swallowed here so one failed resume doesn't wedge every later one --
+    // each call's own .catch still sees and reports the rejection.
+    syncQueue.current = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Patches the parked interrupt's milestone list in place -- the only piece
+      of `envelope` that reorder/edit touch, and the piece the screen needs to
+      update before the network round trip even starts. */
+  function updateApprovalMilestones(updater: (list: DraftMilestone[]) => DraftMilestone[]) {
+    setEnvelope((prev) => {
+      if (!prev || prev.interrupt?.kind !== "approval") return prev;
+      return { ...prev, interrupt: { ...prev.interrupt, milestones: updater(prev.interrupt.milestones) } };
+    });
+  }
+
+  function reorderDraftsByIds(list: DraftMilestone[], ids: string[]) {
+    const byId = new Map(list.map((m) => [m.id, m]));
+    return ids.map((id) => byId.get(id)).filter((m): m is DraftMilestone => Boolean(m));
+  }
+
   async function begin() {
     const input = raw.trim();
     if (!input || busy) return;
@@ -132,7 +170,7 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
     setBusy(true);
     setError(null);
     try {
-      land(await resumeRoadmap(id, payload));
+      land(await sync(payload));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not send that.");
     } finally {
@@ -150,7 +188,7 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
     try {
       const fresh = await creation.track(
         "Breaking this into milestones and grounding them in your materials…",
-        () => resumeRoadmap(id, { answers: clarify.questions.map((q) => answers[q] ?? "") }),
+        () => sync({ answers: clarify.questions.map((q) => answers[q] ?? "") }),
       );
       if (!mounted.current) return;
       land(fresh);
@@ -179,12 +217,98 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
     router.push("/goal");
   }
 
-  function moveMilestone(list: DraftMilestone[], index: number, delta: number) {
+  /** Reorders locally first, then syncs in the background -- same convention
+      as the goal page's roadmap. A failed sync rolls the list back to the
+      order the graph still has and surfaces the banner. */
+  function commitReorder(nextIds: string[], previousIds: string[]) {
+    if (nextIds.join(",") === previousIds.join(",")) return;
+    setError(null);
+    sync({ action: "reorder", ids_in_order: nextIds })
+      .then((fresh) => land(fresh))
+      .catch((err) => {
+        updateApprovalMilestones((list) => reorderDraftsByIds(list, previousIds));
+        setError(err instanceof ApiError ? err.message : "Could not reorder that.");
+      });
+  }
+
+  function pointerToIndex(clientY: number) {
+    const items = reviewListRef.current?.querySelectorAll<HTMLElement>("[data-mid]");
+    if (!items || !items.length) return 0;
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) return i;
+    }
+    return items.length - 1;
+  }
+
+  function startDrag(event: React.PointerEvent<HTMLButtonElement>, id: string) {
+    if (!approval) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragOrigin.current = approval.milestones.map((m) => m.id);
+    setDragId(id);
+  }
+
+  function dragMove(event: React.PointerEvent<HTMLButtonElement>) {
+    if (dragOrigin.current === null || dragId === null || !approval) return;
+    const from = approval.milestones.findIndex((m) => m.id === dragId);
+    const to = pointerToIndex(event.clientY);
+    if (from === -1 || from === to) return;
+    updateApprovalMilestones((list) => {
+      const next = [...list];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  function endDrag() {
+    if (dragOrigin.current === null || !approval) return;
+    const previousIds = dragOrigin.current;
+    dragOrigin.current = null;
+    setDragId(null);
+    commitReorder(
+      approval.milestones.map((m) => m.id),
+      previousIds,
+    );
+  }
+
+  /** Keyboard fallback for the drag handle. */
+  function nudge(index: number, delta: number) {
+    if (!approval) return;
     const target = index + delta;
-    if (target < 0 || target >= list.length) return;
-    const ids = list.map((m) => m.id);
-    [ids[index], ids[target]] = [ids[target], ids[index]];
-    void resume({ action: "reorder", ids_in_order: ids });
+    if (target < 0 || target >= approval.milestones.length) return;
+    const previousIds = approval.milestones.map((m) => m.id);
+    const nextIds = [...previousIds];
+    [nextIds[index], nextIds[target]] = [nextIds[target], nextIds[index]];
+    updateApprovalMilestones((list) => reorderDraftsByIds(list, nextIds));
+    commitReorder(nextIds, previousIds);
+  }
+
+  function handleReorderKeyDown(event: React.KeyboardEvent, index: number) {
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      nudge(index, -1);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      nudge(index, 1);
+    }
+  }
+
+  /** Same local-first convention as the goal page: the field and the closed
+      edit panel land instantly, and the sync plays out behind them. */
+  function saveApprovalEdit(milestone: DraftMilestone, fields: Partial<DraftMilestone>) {
+    updateApprovalMilestones((list) =>
+      list.map((m) => (m.id === milestone.id ? { ...m, ...fields } : m)),
+    );
+    setError(null);
+    sync({ action: "edit", milestone_id: milestone.id, fields })
+      .then((fresh) => land(fresh))
+      .catch((err) => {
+        updateApprovalMilestones((list) =>
+          list.map((m) => (m.id === milestone.id ? milestone : m)),
+        );
+        setError(err instanceof ApiError ? err.message : "Could not save that.");
+      });
   }
 
   // ---- stepper ----------------------------------------------------------
@@ -440,7 +564,7 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
                 </p>
               </div>
 
-              <ul className={styles.reviewList}>
+              <ul className={styles.reviewList} ref={reviewListRef}>
                 {approval.milestones.map((milestone, index) => {
                   const rejected = milestone.status === "rejected";
                   const isEditing = editing === milestone.id;
@@ -448,33 +572,27 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
                   return (
                     <li
                       key={milestone.id}
-                      className={`${styles.reviewItem} ${rejected ? styles.reviewRejected : ""}`}
+                      data-mid={milestone.id}
+                      className={`${styles.reviewItem} ${rejected ? styles.reviewRejected : ""} ${
+                        dragId === milestone.id ? styles.dragging : ""
+                      }`}
                     >
-                      <div className={styles.moveColumn}>
-                        <button
-                          type="button"
-                          className={styles.iconBtn}
-                          onClick={() => moveMilestone(approval.milestones, index, -1)}
-                          disabled={busy || index === 0}
-                          aria-label={`Move “${milestone.title}” earlier`}
-                          title="Move earlier"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.iconBtn}
-                          onClick={() => moveMilestone(approval.milestones, index, 1)}
-                          disabled={busy || index === approval.milestones.length - 1}
-                          aria-label={`Move “${milestone.title}” later`}
-                          title="Move later"
-                        >
-                          ↓
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        className={`${styles.iconBtn} ${styles.dragHandle}`}
+                        onPointerDown={(e) => startDrag(e, milestone.id)}
+                        onPointerMove={dragMove}
+                        onPointerUp={endDrag}
+                        onPointerCancel={endDrag}
+                        onKeyDown={(e) => handleReorderKeyDown(e, index)}
+                        aria-label={`Reorder “${milestone.title}”. Drag, or use Arrow Up and Arrow Down.`}
+                        title="Drag to reorder"
+                      >
+                        ⠿
+                      </button>
 
                       <div className={styles.reviewNum} aria-hidden="true">
-                        {rejected ? "✕" : milestone.order}
+                        {rejected ? "✕" : index + 1}
                       </div>
 
                       <div className={styles.reviewBody}>
@@ -531,16 +649,11 @@ export function RoadmapWizard({ threadId }: { threadId: string | null }) {
                               <button
                                 type="button"
                                 className="btn-inline"
-                                disabled={busy}
                                 onClick={() => {
                                   const fields = { ...draft };
                                   setEditing(null);
                                   setDraft(null);
-                                  void resume({
-                                    action: "edit",
-                                    milestone_id: milestone.id,
-                                    fields,
-                                  });
+                                  saveApprovalEdit(milestone, fields);
                                 }}
                               >
                                 Save

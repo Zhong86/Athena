@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ChatLauncher } from "@/components/ChatLauncher";
+import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import { When } from "@/components/When";
 import {
@@ -197,7 +197,7 @@ export default async function QuizzesPage() {
         <p className="footnote">Feeds Materials confidence scores</p>
       </div>
 
-      <ChatLauncher />
+      <GetStartedGuide />
     </>
   );
 }

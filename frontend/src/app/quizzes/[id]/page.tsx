@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { ChatLauncher } from "@/components/ChatLauncher";
+import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav, type DrillNav } from "@/components/Nav";
 import {
   ApiError,
@@ -109,7 +109,7 @@ export default async function QuizPage(props: { params: Promise<{ id: string }> 
         <QuizView initial={quiz} initialEvents={events} />
       </div>
 
-      <ChatLauncher />
+      <GetStartedGuide />
     </>
   );
 }

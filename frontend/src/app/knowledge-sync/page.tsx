@@ -1,4 +1,4 @@
-import { ChatLauncher } from "@/components/ChatLauncher";
+import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import { SessionLog } from "@/components/SessionLog";
 import { ApiError, getGatherConfig, listSessions, type GatherConfig, type Session } from "@/lib/api";
@@ -81,7 +81,7 @@ export default async function KnowledgeSyncPage() {
         <p className="footnote">Feeds your Dashboard priorities and Goal roadmap</p>
       </div>
 
-      <ChatLauncher />
+      <GetStartedGuide />
     </>
   );
 }
