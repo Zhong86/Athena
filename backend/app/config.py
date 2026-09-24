@@ -87,7 +87,6 @@ class Settings(BaseSettings):
     # file-count cap above, so a folder scope pointed at a huge tree can't
     # turn one gather run into hundreds of Drive calls.
     materials_gather_drive_folder_cap: int = 100
-    materials_gather_lookback_days: int = 30
     # Shared secret for POST /materials/gather/run. Empty means the endpoint
     # refuses every request -- an unauthenticated auto-import-and-ingest
     # endpoint must not be reachable by default.

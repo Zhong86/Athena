@@ -15,11 +15,9 @@ restart to change.
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.clock import utc_now_iso
-from app.config import get_settings
 
 DRIVE_FOLDER_KEY = "materials.gather_drive_folder"
 
@@ -69,14 +67,14 @@ def _last_cursor(conn: sqlite3.Connection) -> str | None:
 def start_run(conn: sqlite3.Connection) -> dict[str, Any]:
     """Open a new run row and resolve the Drive cursor to scan from.
 
-    First-ever run (no prior finished row) falls back to
-    `materials_gather_lookback_days` ago rather than scanning all of Drive.
+    First-ever run (no prior finished row, including right after a reset)
+    gets no lower bound at all -- `None`, which `drive.build_query` reads as
+    "don't filter by modifiedTime." A student's material can predate any
+    fixed lookback window by months or years (a syllabus from the start of
+    the semester, notes from a previous year), and there is no safe default
+    short of "everything" that doesn't risk silently missing real coursework.
     """
     cursor = _last_cursor(conn)
-    if cursor is None:
-        lookback = get_settings().materials_gather_lookback_days
-        cutoff = datetime.now(timezone.utc) - timedelta(days=lookback)
-        cursor = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     row = conn.execute(
         "INSERT INTO materials_gather_runs DEFAULT VALUES RETURNING *"

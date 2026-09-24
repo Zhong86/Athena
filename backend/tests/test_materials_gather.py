@@ -433,6 +433,61 @@ class TestFolderConfig:
         assert resp.status_code == 409
 
 
+class TestNoLookbackLimit:
+    """The very first gather run (or the first one after every run row is
+    gone, e.g. post-reset) must not silently exclude older material -- a
+    year-old syllabus is exactly the kind of thing gather exists to find."""
+
+    def test_first_ever_run_queries_drive_with_no_modified_time_floor(
+        self, client, monkeypatch
+    ):
+        with connection() as conn:
+            # Simulate "no prior run" regardless of what earlier tests in this
+            # module have already done against the shared DB.
+            conn.execute("DELETE FROM materials_gather_runs")
+
+        seen_queries = []
+
+        async def fake_token():
+            return "fake-token"
+
+        async def fake_list_files(token, *, query, page_token=None, page_size=50):
+            seen_queries.append(query)
+            return {"files": [], "nextPageToken": None}
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "list_files", fake_list_files)
+
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        assert seen_queries
+        assert "modifiedTime" not in seen_queries[0]
+
+    def test_a_later_run_does_have_a_cursor(self, client, monkeypatch):
+        async def fake_token():
+            return "fake-token"
+
+        seen_queries = []
+
+        async def fake_list_files(token, *, query, page_token=None, page_size=50):
+            seen_queries.append(query)
+            return {"files": [], "nextPageToken": None}
+
+        monkeypatch.setattr(google_drive, "access_token", fake_token)
+        monkeypatch.setattr(google_drive, "list_files", fake_list_files)
+
+        # A completed run always precedes this one in the shared module DB by
+        # this point in the file -- but make it explicit rather than relying
+        # on test order.
+        _run_gather(client)
+        seen_queries.clear()
+
+        resp = _run_gather(client)
+        assert resp.status_code == 200
+        assert seen_queries
+        assert "modifiedTime" in seen_queries[0]
+
+
 class TestFolderScopesDriveQuery:
     def test_configured_folder_narrows_the_drive_query(self, client, monkeypatch):
         with connection() as conn:

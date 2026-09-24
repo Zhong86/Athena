@@ -1,4 +1,5 @@
-"""SQL for `quizzes`, `quiz_questions`, `quiz_attempts` and `understanding_events`.
+"""SQL for `quizzes`, `quiz_questions`, `quiz_attempts`, `understanding_events`
+and `quiz_creation_runs`.
 
 Same contract the other repositories keep: every function takes the caller's
 connection and never opens its own, so a submit that writes attempt rows, the
@@ -18,6 +19,15 @@ from app.clock import utc_now_iso
 from app.ranking import NO_SIGNAL
 
 QUIZ_STATUSES = ("ready", "in_progress", "grading", "graded")
+# Exactly 011's CHECK on quiz_creation_runs.status.
+RUN_STATUSES = (
+    "choosing_topic",
+    "choosing_format",
+    "generating",
+    "reviewing",
+    "committed",
+    "abandoned",
+)
 
 
 def _json_list(raw: Any) -> list:
@@ -431,3 +441,52 @@ def latest_understanding_event(conn: sqlite3.Connection) -> dict[str, Any] | Non
     event = dict(row)
     event["evidence"] = _json_obj(event["evidence"])
     return event
+
+
+# --------------------------------------------------------------------------
+# quiz_creation_runs -- the index the HTTP layer looks in-flight graph runs up by
+# --------------------------------------------------------------------------
+
+
+def create_creation_run(
+    conn: sqlite3.Connection,
+    *,
+    thread_id: str,
+    topic_hint: str | None = None,
+    status: str = "choosing_topic",
+) -> dict[str, Any]:
+    cur = conn.execute(
+        "INSERT INTO quiz_creation_runs (thread_id, topic_hint, status) VALUES (?, ?, ?) "
+        "RETURNING *",
+        (thread_id, topic_hint, status),
+    )
+    return dict(cur.fetchone())
+
+
+def get_creation_run(conn: sqlite3.Connection, thread_id: str) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM quiz_creation_runs WHERE thread_id = ?", (thread_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def list_unfinished_creation_runs(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Runs the student can still come back to -- same reasoning as
+    `app.goals.repository.list_unfinished_runs`."""
+    rows = conn.execute(
+        "SELECT * FROM quiz_creation_runs WHERE status NOT IN ('committed', 'abandoned') "
+        "ORDER BY updated_at DESC, thread_id DESC"
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def set_creation_run_status(
+    conn: sqlite3.Connection, thread_id: str, status: str, *, quiz_id: int | None = None
+) -> None:
+    if status not in RUN_STATUSES:
+        raise ValueError(f"unknown run status: {status}")
+    conn.execute(
+        "UPDATE quiz_creation_runs SET status = ?, updated_at = ?, "
+        "quiz_id = COALESCE(?, quiz_id) WHERE thread_id = ?",
+        (status, utc_now_iso(), quiz_id, thread_id),
+    )

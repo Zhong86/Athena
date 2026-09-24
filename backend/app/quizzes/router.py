@@ -1,8 +1,12 @@
 """HTTP for quizzes.
 
-Generation is not here. A quiz arrives fully formed on `POST /quizzes` — with
-the resources it was written from — and this module covers what happens
-afterwards: answering, grading, and the score that grading moves.
+Two ways a quiz comes to exist: handed over fully formed on `POST /quizzes`
+(kept for scripts/tests and any future caller that already has one built), or
+built interactively by the creation graph under `/quizzes/create` -- get
+materials, clarify the topic and format, generate, review, commit. Either path
+ends at the same `quizzes`/`quiz_questions` rows, so everything below this --
+answering, grading, and the score that grading moves -- has no branch for
+which one produced them.
 
 The grading split mirrors materials ingest. Multiple choice is settled inline
 because it is arithmetic against a key; the open-ended pass is one Hermes call
@@ -13,22 +17,32 @@ poll.
 """
 
 import logging
+import uuid
 
+import anyio.to_thread
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
+from langgraph.types import Command
 
 from app.db import connection
 from app.materials import repository as materials_repo
 from app.quizzes import grading
 from app.quizzes import repository as repo
 from app.quizzes import scoring, view
+from app.quizzes.graph import compiled
+from app.quizzes.llm import LLMUnavailable
 from app.quizzes.schemas import (
     AnswersRequest,
     Quiz,
     QuizCreate,
+    QuizCreationEnvelope,
+    QuizCreationRunCard,
     QuizPage,
     QuizStatus,
+    ResumeQuizCreation,
+    StartQuizCreation,
     UnderstandingEvent,
 )
+from app.quizzes.state import NoMaterials, new_state
 from app.sessions import repository as sessions_repo
 
 log = logging.getLogger(__name__)
@@ -49,6 +63,109 @@ def _hydrate(conn, quiz: dict) -> Quiz:
         repo.questions_for_quiz(conn, quiz["id"]),
         repo.attempts_for_quiz(conn, quiz["id"]),
     )
+
+
+# --------------------------------------------------------------------------
+# creating a quiz -- the agent flow
+# --------------------------------------------------------------------------
+#
+# Declared before "reading"'s GET /{quiz_id}: that path captures any string
+# and only rejects "create" at validation time, so the literal route has to be
+# registered first or it never gets a chance to match.
+
+
+def _envelope(thread_id: str, result: dict) -> QuizCreationEnvelope:
+    """The one response shape every graph endpoint returns."""
+    interrupts = result.get("__interrupt__") or ()
+    payload = interrupts[0].value if interrupts else None
+    quiz_id = result.get("quiz_id")
+    status = result.get("status") or "choosing_topic"
+    return QuizCreationEnvelope(
+        thread_id=thread_id, status=status, interrupt=payload, quiz_id=quiz_id
+    )
+
+
+async def _invoke(thread_id: str, payload) -> dict:
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        return await anyio.to_thread.run_sync(
+            lambda: compiled().invoke(payload, config=config)
+        )
+    except LLMUnavailable as exc:
+        # Generation cannot degrade -- a quiz is the product -- so this is the
+        # one place a dead gateway has to reach the user.
+        raise HTTPException(status_code=503, detail=f"Hermes unavailable: {exc}") from exc
+    except NoMaterials as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/create", response_model=QuizCreationEnvelope)
+async def start_quiz_creation(body: StartQuizCreation) -> QuizCreationEnvelope:
+    thread_id = f"quiz-{uuid.uuid4().hex[:12]}"
+    with connection() as conn:
+        repo.create_creation_run(conn, thread_id=thread_id, topic_hint=body.topic_hint)
+
+    result = await _invoke(thread_id, new_state(topic_hint=body.topic_hint))
+    envelope = _envelope(thread_id, result)
+    with connection() as conn:
+        repo.set_creation_run_status(conn, thread_id, envelope.status, quiz_id=envelope.quiz_id)
+    return envelope
+
+
+@router.post("/create/{thread_id}/resume", response_model=QuizCreationEnvelope)
+async def resume_quiz_creation(thread_id: str, body: ResumeQuizCreation) -> QuizCreationEnvelope:
+    with connection() as conn:
+        run = repo.get_creation_run(conn, thread_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="No such quiz creation run")
+    if run["status"] in ("committed", "abandoned"):
+        # Resuming a finished run would start a second pass over commit_quiz
+        # and produce a duplicate quiz.
+        raise HTTPException(status_code=409, detail=f"This run is already {run['status']}")
+
+    result = await _invoke(thread_id, Command(resume=body.payload))
+    envelope = _envelope(thread_id, result)
+    with connection() as conn:
+        repo.set_creation_run_status(conn, thread_id, envelope.status, quiz_id=envelope.quiz_id)
+    return envelope
+
+
+@router.get("/create", response_model=list[QuizCreationRunCard])
+async def list_unfinished_quiz_creation_runs() -> list[QuizCreationRunCard]:
+    with connection() as conn:
+        return [
+            QuizCreationRunCard(**run) for run in repo.list_unfinished_creation_runs(conn)
+        ]
+
+
+@router.get("/create/{thread_id}", response_model=QuizCreationEnvelope)
+async def get_quiz_creation_run(thread_id: str) -> QuizCreationEnvelope:
+    """Current state of a run -- what reloading a "creating your quiz" page
+    comes back to."""
+    with connection() as conn:
+        run = repo.get_creation_run(conn, thread_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="No such quiz creation run")
+
+    config = {"configurable": {"thread_id": thread_id}}
+    snapshot = await anyio.to_thread.run_sync(lambda: compiled().get_state(config))
+    pending = snapshot.tasks[0].interrupts if snapshot.tasks else ()
+    return QuizCreationEnvelope(
+        thread_id=thread_id,
+        status=snapshot.values.get("status", run["status"]),
+        interrupt=pending[0].value if pending else None,
+        quiz_id=snapshot.values.get("quiz_id") or run["quiz_id"],
+    )
+
+
+@router.delete("/create/{thread_id}", status_code=204)
+async def abandon_quiz_creation(thread_id: str) -> None:
+    """Abandon a draft run. The checkpoint is left in place deliberately --
+    same call `app.goals.router.abandon_roadmap` makes."""
+    with connection() as conn:
+        if repo.get_creation_run(conn, thread_id) is None:
+            raise HTTPException(status_code=404, detail="No such quiz creation run")
+        repo.set_creation_run_status(conn, thread_id, "abandoned")
 
 
 # --------------------------------------------------------------------------

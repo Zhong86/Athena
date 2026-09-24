@@ -171,6 +171,50 @@ class QuizPage(BaseModel):
     offset: int
 
 
+# --------------------------------------------------------------------------
+# creating a quiz (the agent flow -- generation happens here)
+# --------------------------------------------------------------------------
+
+
+class StartQuizCreation(BaseModel):
+    # Optional opening line ("quiz me on entropy"); choose_topic still
+    # confirms it against the real topic list rather than trusting it blind.
+    topic_hint: str | None = Field(default=None, max_length=200)
+
+
+class ResumeQuizCreation(BaseModel):
+    """The resume payload, passed to the graph as-is.
+
+    Untyped on purpose, same reasoning as `ResumeRoadmap`: `choose_topic`,
+    `choose_format` and `present_quiz` each expect a different shape, and only
+    the node that called `interrupt()` knows which.
+    """
+
+    payload: Any
+
+
+class QuizCreationRunCard(BaseModel):
+    """An unfinished run, for a "pick up where you left off" row."""
+
+    thread_id: str
+    status: str
+    topic_hint: str | None = None
+    created_at: str
+    updated_at: str | None = None
+
+
+class QuizCreationEnvelope(BaseModel):
+    """One shape for every graph endpoint, so the frontend has one code path.
+
+    `interrupt` null with a `quiz_id` set means the run committed.
+    """
+
+    thread_id: str
+    status: str
+    interrupt: dict[str, Any] | None = None
+    quiz_id: int | None = None
+
+
 class UnderstandingEvent(BaseModel):
     id: int
     topic_id: int
