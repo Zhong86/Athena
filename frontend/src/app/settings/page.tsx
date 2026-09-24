@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 
 import { GoogleConnection } from "./GoogleConnection";
+import { ResetEverything } from "./ResetEverything";
 import { SettingsPanel } from "./SettingsPanel";
 
 export const metadata = { title: "Settings · Αθηνα" };
@@ -62,6 +63,8 @@ export default async function SettingsPage() {
         />
 
         <SettingsPanel initialInterval={interval} />
+
+        <ResetEverything />
       </div>
 
       <GetStartedGuide />

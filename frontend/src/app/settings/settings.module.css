@@ -148,3 +148,15 @@
   outline: none;
   border-color: var(--indigo);
 }
+
+/* ===== Danger zone ===== */
+.dangerConfirm {
+  display: flex;
+  gap: 8px;
+}
+
+.dangerButton {
+  color: var(--coral);
+  border-color: color-mix(in srgb, var(--coral) 40%, transparent);
+  align-self: flex-start;
+}

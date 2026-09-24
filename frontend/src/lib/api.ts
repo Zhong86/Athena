@@ -1159,6 +1159,20 @@ export function disconnectGoogle(): Promise<DisconnectResult> {
   return request<DisconnectResult>("/connections/google", { method: "DELETE" });
 }
 
+/* ---------- system ---------- */
+
+export type ResetResult = {
+  /** Set when the wipe itself succeeded but revoking Google upstream or
+      removing its files from the Hermes host did not. */
+  warning: string | null;
+};
+
+/** Wipes every table, the vector store and uploaded bytes back to empty --
+    the Settings page's "Reset everything" button. Irreversible. */
+export function resetEverything(): Promise<ResetResult> {
+  return request<ResetResult>("/system/reset", { method: "POST" });
+}
+
 /* ---------- presentation helpers ---------- */
 
 /**

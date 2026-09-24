@@ -18,6 +18,7 @@ from app.materials.gather import router as materials_gather_router
 from app.migrations import current_version, pending_count
 from app.quizzes import router as quizzes_router
 from app.sessions import router as sessions_router
+from app.system import router as system_router
 
 
 @asynccontextmanager
@@ -69,6 +70,7 @@ app.include_router(goals_router.router)
 app.include_router(quizzes_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(connections_router.router)
+app.include_router(system_router.router)
 
 app.mount("/mcp", mcp_server.app)
 
