@@ -885,6 +885,114 @@ export function listUnderstandingEvents(
   return request<UnderstandingEvent[]>(`/quizzes/evidence/${topicId}?limit=${limit}`);
 }
 
+/* ---------- quiz creation (the agent flow) ---------- */
+
+export type QuestionFormat = "multiple_choice" | "open_ended" | "mixed";
+
+/** A topic the creation graph offers to quiz on -- only ones with material. */
+export type QuizTopicOption = {
+  id: number;
+  name: string;
+  description: string | null;
+  chunk_count: number;
+};
+
+export type ChooseTopicInterrupt = {
+  kind: "choose_topic";
+  topics: QuizTopicOption[];
+  topic_hint: string | null;
+  error: string | null;
+};
+
+export type ChooseFormatInterrupt = {
+  kind: "choose_format";
+  topic_name: string | null;
+  error: string | null;
+};
+
+/** A question as generated, before it is a real `QuizQuestion` row -- the
+    answer key is shown here on purpose: this is the creator reviewing their
+    own quiz before it goes live, not a student taking it. */
+export type DraftQuestion = {
+  kind: QuestionKind;
+  prompt: string;
+  options: string[];
+  correct_option: number | null;
+  rubric: string | null;
+  explanation: string | null;
+  resources: QuizResource[];
+};
+
+export type ReviewInterrupt = {
+  kind: "review";
+  quiz_title: string | null;
+  topic_name: string | null;
+  questions: DraftQuestion[];
+  error: string | null;
+};
+
+export type QuizCreationInterrupt = ChooseTopicInterrupt | ChooseFormatInterrupt | ReviewInterrupt;
+
+/**
+ * One shape for every graph endpoint. `interrupt: null` with a `quiz_id` means
+ * the run committed and the wizard is done.
+ */
+export type QuizCreationEnvelope = {
+  thread_id: string;
+  status: "choosing_topic" | "choosing_format" | "generating" | "reviewing" | "committed" | "abandoned";
+  interrupt: QuizCreationInterrupt | null;
+  quiz_id: number | null;
+};
+
+/** The three resume payloads `choose_topic`/`choose_format`/`present_quiz` understand. */
+export type QuizCreationResumeAction =
+  | { topic_id: number }
+  | { topic_name: string }
+  | { format: QuestionFormat; count?: number }
+  | "start"
+  | "regenerate"
+  | "cancel";
+
+/** An unfinished creation run, so a parked draft is reachable after a reload. */
+export type QuizCreationRun = {
+  thread_id: string;
+  status: string;
+  topic_hint: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export function listUnfinishedQuizCreationRuns(): Promise<QuizCreationRun[]> {
+  return request<QuizCreationRun[]>("/quizzes/create");
+}
+
+export function startQuizCreation(topicHint?: string): Promise<QuizCreationEnvelope> {
+  return request<QuizCreationEnvelope>("/quizzes/create", {
+    method: "POST",
+    body: JSON.stringify({ topic_hint: topicHint || null }),
+  });
+}
+
+export function resumeQuizCreation(
+  threadId: string,
+  payload: QuizCreationResumeAction,
+): Promise<QuizCreationEnvelope> {
+  return request<QuizCreationEnvelope>(`/quizzes/create/${threadId}/resume`, {
+    method: "POST",
+    body: JSON.stringify({ payload }),
+  });
+}
+
+/** Reads the parked interrupt without advancing the graph — what reloading the
+    wizard mid-run comes back to. */
+export function getQuizCreationRun(threadId: string): Promise<QuizCreationEnvelope> {
+  return request<QuizCreationEnvelope>(`/quizzes/create/${threadId}`);
+}
+
+export function abandonQuizCreation(threadId: string): Promise<void> {
+  return request<void>(`/quizzes/create/${threadId}`, { method: "DELETE" });
+}
+
 /** Live version of `dashboard.html`'s Last check-in card. */
 export type DashboardCheckIn = {
   topic_id: number;

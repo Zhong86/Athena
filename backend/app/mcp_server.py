@@ -18,6 +18,7 @@ from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 
 from app.config import get_settings
+from app.materials.gather.mcp_tools import gather_materials
 from app.materials.mcp_tools import list_material_topics, search_materials
 
 
@@ -52,6 +53,7 @@ def build_app() -> Starlette:
     mcp = MCPServer(name="athena", title="Athena Materials")
     mcp.add_tool(search_materials)
     mcp.add_tool(list_material_topics)
+    mcp.add_tool(gather_materials)
 
     # streamable_http_path="/" (not the "/mcp" default): this app is mounted
     # at /mcp in main.py, and stacking "/mcp" here on top of that mount

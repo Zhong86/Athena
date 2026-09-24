@@ -7,9 +7,11 @@ import {
   ApiError,
   isTakeable,
   listQuizzes,
+  listUnfinishedQuizCreationRuns,
   QUIZ_STATUS_LABEL,
   scoreDisplay,
   understandingBand,
+  type QuizCreationRun,
   type QuizListPage,
   type QuizSummary,
 } from "@/lib/api";
@@ -17,6 +19,31 @@ import {
 import styles from "./quiz.module.css";
 
 export const metadata = { title: "Quizzes · Αθηνα" };
+
+const CREATION_STEP_LABEL: Record<string, string> = {
+  choosing_topic: "Waiting on you to pick a topic",
+  choosing_format: "Waiting on you to pick a format",
+  reviewing: "Waiting on your review",
+};
+
+function DraftRow({ run }: { run: QuizCreationRun }) {
+  return (
+    <li>
+      <Link href={`/quizzes/new?thread=${run.thread_id}`} className={styles.quizCard}>
+        <div className={styles.quizMeta}>
+          <p className={styles.quizTitle}>{run.topic_hint || "New quiz"}</p>
+          <p className={styles.quizSub}>
+            {CREATION_STEP_LABEL[run.status] ?? "In progress"} · started{" "}
+            <When iso={run.created_at} />
+          </p>
+        </div>
+        <div className={styles.quizAside}>
+          <span className={`${styles.statusPill} ${styles.ready}`}>Draft</span>
+        </div>
+      </Link>
+    </li>
+  );
+}
 
 function QuizRow({ quiz }: { quiz: QuizSummary }) {
   const open = isTakeable(quiz.status);
@@ -69,9 +96,13 @@ function QuizRow({ quiz }: { quiz: QuizSummary }) {
 
 export default async function QuizzesPage() {
   let page: QuizListPage | null = null;
+  let drafts: QuizCreationRun[] = [];
   let error: string | null = null;
   try {
-    page = await listQuizzes({ limit: 100 });
+    [page, drafts] = await Promise.all([
+      listQuizzes({ limit: 100 }),
+      listUnfinishedQuizCreationRuns(),
+    ]);
   } catch (err) {
     error = err instanceof ApiError ? err.message : "Something went wrong.";
   }
@@ -85,16 +116,35 @@ export default async function QuizzesPage() {
       <Nav active="Quizzes" />
 
       <div className="shell">
-        <div className="greeting">
-          <h1>Every check-in you&rsquo;ve taken.</h1>
-          <p>
-            Multiple choice is marked against the key; open-ended answers are read by
-            Αθηνα against the material the quiz was written from. Each one moves the
-            confidence score on the topics it covered.
-          </p>
+        <div className={styles.headRow}>
+          <div className="greeting">
+            <h1>Every check-in you&rsquo;ve taken.</h1>
+            <p>
+              Multiple choice is marked against the key; open-ended answers are read by
+              Αθηνα against the material the quiz was written from. Each one moves the
+              confidence score on the topics it covered.
+            </p>
+          </div>
+          <Link href="/quizzes/new" className="btn">
+            + New quiz
+          </Link>
         </div>
 
         {error ? <div className="banner-error">{error}</div> : null}
+
+        {drafts.length ? (
+          <div className="section">
+            <div className="section-head">
+              <h2>In progress</h2>
+              <span className={styles.subtle}>Not generated yet</span>
+            </div>
+            <ul className={styles.quizList}>
+              {drafts.map((run) => (
+                <DraftRow key={run.thread_id} run={run} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {open.length > 0 ? (
           <div className="section">
@@ -128,14 +178,19 @@ export default async function QuizzesPage() {
                 <QuizRow key={quiz.id} quiz={quiz} />
               ))}
             </ul>
-          ) : open.length === 0 && !error ? (
-            /* Generation is still Step 4, so this does not offer a "new quiz"
-               button that would have nothing to call. */
-            <div className="empty-state">
-              <strong>No quizzes yet</strong>
-              Once Αθηνα can generate check-ins from your material, every one you take
-              will be listed here with its score and what it changed.
-            </div>
+          ) : open.length === 0 && drafts.length === 0 && !error ? (
+            <Link href="/quizzes/new" className={styles.newQuizCard}>
+              <div className={styles.plusIcon} aria-hidden="true">
+                +
+              </div>
+              <div>
+                <strong>Build your first quiz</strong>
+                <p>
+                  Pick a topic from your Materials and Αθηνα will write the questions,
+                  grounded in what you uploaded.
+                </p>
+              </div>
+            </Link>
           ) : null}
         </div>
 
