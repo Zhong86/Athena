@@ -1,4 +1,3 @@
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import {
   ApiError,
@@ -95,8 +94,6 @@ export default async function MaterialsPage() {
 
         <p className="footnote">Feeds quiz generation, confidence scores and your Goal roadmap</p>
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav, type DrillNav } from "@/components/Nav";
 import { When } from "@/components/When";
 import {
@@ -195,8 +194,6 @@ export default async function GoalDetailPage(props: { params: Promise<{ id: stri
           ) : null}
         </p>
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

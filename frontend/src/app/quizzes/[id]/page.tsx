@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav, type DrillNav } from "@/components/Nav";
 import {
   ApiError,
@@ -108,8 +107,6 @@ export default async function QuizPage(props: { params: Promise<{ id: string }> 
             poll, and the result all live on the same screen. */}
         <QuizView initial={quiz} initialEvents={events} />
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

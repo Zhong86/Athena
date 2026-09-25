@@ -119,14 +119,11 @@ export function Nav({ active, drill }: { active?: string; drill?: DrillNav }) {
     <>
       {/* One rail markup, two presentations: fixed on desktop, slid in from
           the left on mobile. `open` only has an effect below the breakpoint.
-          Named so the page-transition crossfade leaves it alone -- each page
-          renders its own <Nav>, and without a stable name the "old" rail and
-          "new" rail would otherwise flicker as two separate elements. */}
-      <nav
-        className={`rail ${open ? "rail-open" : ""}`}
-        aria-label="Main"
-        style={{ viewTransitionName: "site-nav" }}
-      >
+          The page transition holds this still rather than sliding it with the
+          page -- see the `view-transition-class` rules in globals.css. An
+          inline `viewTransitionName` can't do that job: <ViewTransition>
+          rewrites the style attribute of its children when it captures them. */}
+      <nav className={`rail ${open ? "rail-open" : ""}`} aria-label="Main">
         {rail}
         <div className="rail-foot">
           <div className="avatar">Z</div>
@@ -143,9 +140,9 @@ export function Nav({ active, drill }: { active?: string; drill?: DrillNav }) {
       ) : null}
 
       {/* Mobile: title bar. The menu button opens the rail; a back arrow still
-          appears alongside it once drilled in. Named for the same reason as
-          the rail above. */}
-      <header className="m-top" style={{ viewTransitionName: "site-topbar" }}>
+          appears alongside it once drilled in. Held still across navigations
+          for the same reason as the rail above. */}
+      <header className="m-top">
         <div className="m-top-left">
           <button
             type="button"

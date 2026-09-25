@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import {
   API_BASE,
@@ -186,8 +185,6 @@ export default async function DashboardPage() {
             : "backend unreachable"}
         </p>
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

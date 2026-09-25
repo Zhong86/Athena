@@ -1,4 +1,3 @@
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import { ApiError, listSessions, type SessionPage } from "@/lib/api";
 
@@ -85,8 +84,6 @@ export default async function SessionsPage() {
 
         <p className="footnote">Feeds Materials confidence scores and Goal roadmap</p>
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

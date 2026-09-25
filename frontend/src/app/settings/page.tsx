@@ -1,4 +1,3 @@
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import {
   ApiError,
@@ -66,8 +65,6 @@ export default async function SettingsPage() {
 
         <ResetEverything />
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

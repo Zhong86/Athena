@@ -528,32 +528,18 @@ button:focus-visible {
 }
 
 /* ===== Page transitions =====
-   One <ViewTransition> in the root layout, keyed by pathname, wraps every
-   route. Rail and top bar are named below so they read as continuous chrome
-   instead of crossfading with the page content each navigation. */
-::view-transition {
-  /* Otherwise the transition's own overlay eats clicks made while it runs. */
-  pointer-events: none;
+   PageTransition (root layout) remounts the page subtree on every pathname
+   change, so `.shell` is a brand new node each navigation and this animation
+   replays. Only the page body carries it -- the rail and the mobile top bar
+   are outside `.shell`, so the chrome stays put while the content arrives. */
+.shell {
+  animation: page-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 }
 
-::view-transition-old(.page-exit) {
-  animation: 120ms ease-out both page-fade-out;
-}
-
-::view-transition-new(.page-enter) {
-  animation: 240ms ease-out 40ms both page-fade-in;
-}
-
-@keyframes page-fade-out {
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes page-fade-in {
+@keyframes page-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -561,26 +547,8 @@ button:focus-visible {
   }
 }
 
-::view-transition-group(site-nav),
-::view-transition-group(site-topbar) {
-  animation: none;
-}
-
-::view-transition-old(site-nav),
-::view-transition-old(site-topbar) {
-  display: none;
-}
-
-::view-transition-new(site-nav),
-::view-transition-new(site-topbar) {
-  animation: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(*),
-  ::view-transition-new(*),
-  ::view-transition-group(*) {
-    animation-duration: 0s !important;
-    animation-delay: 0s !important;
+  .shell {
+    animation: none;
   }
 }

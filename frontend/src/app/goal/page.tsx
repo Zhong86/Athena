@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import { When } from "@/components/When";
 import {
@@ -195,8 +194,6 @@ export default async function GoalListPage() {
           Roadmaps are ordered from your topic scores
         </p>
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

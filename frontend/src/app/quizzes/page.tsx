@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { Nav } from "@/components/Nav";
 import { When } from "@/components/When";
 import {
@@ -196,8 +195,6 @@ export default async function QuizzesPage() {
 
         <p className="footnote">Feeds Materials confidence scores</p>
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }

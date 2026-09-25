@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { GetStartedGuide } from "@/components/GetStartedGuide";
 import { EvidenceList } from "@/components/EvidenceList";
 import { Nav, type DrillNav } from "@/components/Nav";
 import { When } from "@/components/When";
@@ -201,8 +200,6 @@ export default async function TopicDetailPage(props: {
 
         <p className="footnote">Feeds your Goal roadmap and Dashboard priorities</p>
       </div>
-
-      <GetStartedGuide />
     </>
   );
 }
